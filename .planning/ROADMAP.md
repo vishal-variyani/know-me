@@ -100,10 +100,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 03-01: Implement `RetrievalModule` with `RetrievalService.retrieve(text, userId)` — parallel `Promise.all` of (a) embed + pgvector cosine top-5 via `MemoryService.searchSimilar()` and (b) `PeopleService.detectNames()` + `PeopleService.lookupByNames()`; returns `MemoryContext`
-- [ ] 03-02: Implement `LlmModule` with `LlmService` — `ChatAnthropic` with `streaming: true` and model from `ANTHROPIC_MODEL` env var; `streamResponse(text, memoryContext, history)` assembles system prompt with structured memory block and returns `AsyncIterable<string>`
-- [ ] 03-03: Implement `ChatGateway` in `ChatModule` — Socket.io middleware validates UUID on handshake; `handleMessage` persists message, calls retrieval, calls LlmService, iterates `for await...of` emitting `chat:chunk`, emits `chat:complete`; stubs `ExtractionService.enqueue()` with a no-op for this phase
-- [ ] 03-04: Wire `AbortController` per socket connection — `handleDisconnect` calls `abort()`; `LlmService.streamResponse()` accepts `{ signal }` and passes it to the LangChain call; replace no-op extraction stub with real `void extractionService.enqueue()` call (even though ExtractionModule is not yet real)
+- [ ] 03-01-PLAN.md — Implement `RetrievalModule` with `RetrievalService.retrieve(text, userId)` — parallel `Promise.all` of embed+searchSimilar (arm 1) and detectNames+lookupByNames (arm 2); returns `MemoryContext`; unit tested with mocked services
+- [ ] 03-02-PLAN.md — Install `@langchain/anthropic`; implement `LlmModule` with `LlmService` — `ChatAnthropic` streaming:true + model from ANTHROPIC_MODEL; `streamResponse(messages, signal)` returns `AsyncIterable<string>`; unit tested with mocked ChatAnthropic
+- [ ] 03-03-PLAN.md — Add `MemoryService.getRecentMessages(conversationId, limit)` (chronological order); create `ExtractionService` stub (no-op enqueue); define chat event payload types; wire `ChatModule` scaffold with all 4 dependencies
+- [ ] 03-04-PLAN.md — Implement full `ChatGateway` — UUID middleware in afterInit(); per-socket AbortController Map; handleChatSend streaming loop emitting chat:chunk/chat:complete; memory injection at 0.7 threshold; D-01/D-02 10-message history; fire-and-forget extraction; wire into AppModule
 
 **UI hint**: no
 
@@ -216,3 +216,4 @@ Plans:
 ---
 *Generated: 2026-04-15*
 *Phase 1 plans created: 2026-04-15*
+*Phase 3 plans created: 2026-04-16*
