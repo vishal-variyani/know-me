@@ -46,10 +46,10 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 4 plans
 
 Plans:
-- [ ] 01-01: Remove Jest scaffold, install Vitest 2.x with unplugin-swc + @swc/core, configure `vitest.config.ts` with `decoratorMetadata: true`, verify NestJS DI resolves in a smoke test
-- [ ] 01-02: Write `docker-compose.yml` with Supabase-compatible Postgres + pgvector and a Redis 7.2 image; confirm `docker compose up -d` reaches healthy state and pgvector extension loads
-- [ ] 01-03: Write Supabase CLI migrations for all five tables (conversations, conversation_messages, message_embeddings, people, memory_entries) with RLS policies, HNSW indexes on vector columns (`m=16, ef_construction=64`), and B-tree indexes on `user_id`; add `search_user_memories` Postgres function with `iterative_scan = relaxed_order` and `ef_search = 40`
-- [ ] 01-04: Wire `@nestjs/config` globally, add env-var validation schema in `main.ts` that throws before `NestFactory.create()` on missing values, install `@nestjs/platform-socket.io` and set `IoAdapter` in `main.ts`
+- [ ] 01-01-PLAN.md — Remove Jest scaffold; install Vitest 2.x + unplugin-swc; create vitest.config.ts; flip noImplicitAny:true; verify NestJS DI smoke test passes
+- [ ] 01-02-PLAN.md — Create docker-compose.yml (supabase/postgres + redis:7.2-alpine); create .env.example with all 9 required vars; add .env to .gitignore
+- [ ] 01-03-PLAN.md — Write 7 Supabase migration files (extensions, 5 tables with RLS + HNSW + B-tree indexes, search_user_memories function); push to local Postgres (human-verified checkpoint)
+- [ ] 01-04-PLAN.md — Rewrite main.ts with validateEnv() guard + IoAdapter; update AppModule with ConfigModule.forRoot({isGlobal:true}); add main.spec.ts unit tests
 
 **UI hint**: no
 
@@ -215,3 +215,4 @@ Plans:
 
 ---
 *Generated: 2026-04-15*
+*Phase 1 plans created: 2026-04-15*
