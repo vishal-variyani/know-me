@@ -1,3 +1,5 @@
+export type FactType = 'preference' | 'relationship' | 'event' | 'belief' | 'goal' | 'habit';
+
 export interface MemorySearchResult {
   id: string;
   content: string;

@@ -5,6 +5,7 @@ import { PG_POOL } from '../database/database.constants.js';
 import {
   ConversationMessageRow,
   ConversationRow,
+  FactType,
   MemorySearchResult,
 } from './memory.types.js';
 
@@ -75,7 +76,7 @@ export class MemoryService {
     content: string,
     vector: number[],
     userId: string,
-    factType: string,
+    factType: FactType,
     sourceType: 'conversation' | 'document',
   ): Promise<void> {
     const similar = await this.searchSimilar(userId, vector, 1);
