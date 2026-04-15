@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: Complete
-status: Executing Phase 01
-last_updated: "2026-04-15T16:24:17.667Z"
+status: Ready to Execute Phase 02
+last_updated: "2026-04-15T18:00:00.000Z"
 progress:
   total_phases: 6
-  completed_phases: 0
-  total_plans: 4
-  completed_plans: 0
-  percent: 0
+  completed_phases: 1
+  total_plans: 7
+  completed_plans: 4
+  percent: 17
 ---
 
 # Project State: Know Me
@@ -19,7 +19,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-15)
 
 **Core value:** The AI gets meaningfully better at knowing each user the more they interact — persistent, accumulating memory that makes every response feel personally aware.
-**Current focus:** Phase 01 — foundation
+**Current focus:** Phase 02 — core data layer
 
 ## Milestone
 
@@ -29,16 +29,18 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 
 | Phase | Name | Plans | Status |
 |-------|------|-------|--------|
-| 1 | Foundation | 0/4 | ○ Pending |
-| 2 | Core Data Layer | 0/3 | ○ Pending |
+| 1 | Foundation | 4/4 | ✓ Complete |
+| 2 | Core Data Layer | 0/3 | ◆ Planned — ready to execute |
 | 3 | Chat Path | 0/4 | ○ Pending |
 | 4 | Extraction Pipeline | 0/4 | ○ Pending |
 | 5 | Document Upload | 0/2 | ○ Pending |
 | 6 | Test Suite & Hardening | 0/3 | ○ Pending |
 
+Progress: ███░░░░░░░ 17%
+
 ## Next Action
 
-Run `/gsd-plan-phase 1` to plan Phase 1: Foundation.
+Run `/gsd-execute-phase 2` to execute Phase 2: Core Data Layer (3 plans ready).
 
 ## Key Context
 
@@ -46,7 +48,9 @@ Run `/gsd-plan-phase 1` to plan Phase 1: Foundation.
 - LLMs: `claude-sonnet-4-20250514` (chat), `gpt-4o-mini` (extraction), `text-embedding-3-small` 1536 dims — all via env vars
 - Auth: userId in Socket.io handshake (no JWT); RLS + explicit user_id filter on all queries
 - Two runtime paths: chat path (latency-critical, streaming) + extraction path (fire-and-forget, BullMQ)
-- Critical Phase 1 task: remove Jest scaffold and configure Vitest with SWC decorator metadata
+- Phase 1 delivered: NestJS scaffold, Supabase schema (5 tables + HNSW indexes + search_user_memories fn), Vitest+SWC, env validation, Socket.io adapter
+- Phase 2 plans: DatabaseModule (@Global pg Pool), EmbeddingModule (1536-dim OpenAI), MemoryService (CRUD + vector search), PeopleService (compromise NLP + user-scoped SQL)
+- Phase 2 key risk: compromise ESM/CJS interop under nodenext (smoke test in Wave 0); UNIQUE constraint migration for people(user_id,name) is plan 02-03 Task 0
 
 ## Config
 
@@ -60,4 +64,4 @@ Run `/gsd-plan-phase 1` to plan Phase 1: Foundation.
 - Model profile: balanced
 
 ---
-*Last updated: 2026-04-15 after project initialization*
+*Last updated: 2026-04-15 after Phase 1 completion + Phase 2 planning*
