@@ -30,6 +30,9 @@ export class EmbeddingService implements OnModuleInit {
   }
 
   async embed(text: string): Promise<number[]> {
+    if (!this.embeddings) {
+      throw new Error('[EmbeddingService] embeddings not initialized — was onModuleInit called?');
+    }
     return this.embeddings.embedQuery(text);
   }
 }
