@@ -46,8 +46,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 4 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Remove Jest scaffold; install Vitest 2.x + unplugin-swc; create vitest.config.ts; flip noImplicitAny:true; verify NestJS DI smoke test passes
-- [ ] 01-02-PLAN.md — Create docker-compose.yml (supabase/postgres + redis:7.2-alpine); create .env.example with all 9 required vars; add .env to .gitignore
+- [x] 01-01-PLAN.md — Remove Jest scaffold; install Vitest 2.x + unplugin-swc; create vitest.config.ts; flip noImplicitAny:true; verify NestJS DI smoke test passes
+- [x] 01-02-PLAN.md — Create docker-compose.yml (supabase/postgres + redis:7.2-alpine); create .env.example with all 9 required vars; add .env to .gitignore
 - [ ] 01-03-PLAN.md — Write 7 Supabase migration files (extensions, 5 tables with RLS + HNSW + B-tree indexes, search_user_memories function); push to local Postgres (human-verified checkpoint)
 - [ ] 01-04-PLAN.md — Rewrite main.ts with validateEnv() guard + IoAdapter; update AppModule with ConfigModule.forRoot({isGlobal:true}); add main.spec.ts unit tests
 
