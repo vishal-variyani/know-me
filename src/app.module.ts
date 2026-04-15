@@ -4,6 +4,7 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { DatabaseModule } from './database/database.module.js';
 import { EmbeddingModule } from './embedding/embedding.module.js';
+import { MemoryModule } from './memory/memory.module.js';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { EmbeddingModule } from './embedding/embedding.module.js';
     }),
     DatabaseModule,
     EmbeddingModule,
+    MemoryModule,
   ],
   controllers: [AppController],
   providers: [AppService],
