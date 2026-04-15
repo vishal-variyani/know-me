@@ -73,7 +73,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Implement `DatabaseModule` as `@Global()` with `PG_POOL` provider using raw `pg` Pool; implement `EmbeddingModule` exporting `EmbeddingService` wrapping `OpenAIEmbeddings` at 1536 dims with dimension validation at startup
+- [x] 02-01-PLAN.md — Implement `DatabaseModule` as `@Global()` with `PG_POOL` provider using raw `pg` Pool; implement `EmbeddingModule` exporting `EmbeddingService` wrapping `OpenAIEmbeddings` at 1536 dims with dimension validation at startup
 - [ ] 02-02-PLAN.md — Implement `MemoryService` in `MemoryModule` — CRUD for conversations, conversation_messages, and message_embeddings; implement `searchSimilar()` delegating to `search_user_memories` Postgres function; implement `upsertMemoryEntry()` with 0.90 cosine similarity deduplication guard
 - [ ] 02-03-PLAN.md — Implement `PeopleService` in `MemoryModule` — `detectNames()` via simple NLP/regex proper noun extraction, `lookupByNames()` by name/aliases match scoped to `user_id`, and `upsertPerson()` for relationship facts; ensure all queries enforce `user_id` filter
 
