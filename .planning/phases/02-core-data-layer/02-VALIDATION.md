@@ -2,7 +2,7 @@
 phase: 2
 slug: core-data-layer
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-04-15
 ---
@@ -17,18 +17,18 @@ created: 2026-04-15
 
 | Property | Value |
 |----------|-------|
-| **Framework** | jest 29.x (via NestJS) |
-| **Config file** | `jest.config.js` or `package.json#jest` |
-| **Quick run command** | `npm test -- --testPathPattern=src` |
-| **Full suite command** | `npm test` |
+| **Framework** | vitest 2.1.9 |
+| **Config file** | `vitest.config.ts` |
+| **Quick run command** | `pnpm test` |
+| **Full suite command** | `pnpm test` |
 | **Estimated runtime** | ~15 seconds |
 
 ---
 
 ## Sampling Rate
 
-- **After every task commit:** Run `npm test -- --testPathPattern=src`
-- **After every plan wave:** Run `npm test`
+- **After every task commit:** Run `pnpm test`
+- **After every plan wave:** Run `pnpm test`
 - **Before `/gsd-verify-work`:** Full suite must be green
 - **Max feedback latency:** 20 seconds
 
@@ -38,15 +38,15 @@ created: 2026-04-15
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 2-01-01 | 01 | 1 | EMBED-01 | — | N/A | unit | `npm test -- --testPathPattern=embedding` | ❌ W0 | ⬜ pending |
-| 2-01-02 | 01 | 1 | EMBED-02 | — | Startup fails if EMBEDDING_DIMS != 1536 | unit | `npm test -- --testPathPattern=embedding` | ❌ W0 | ⬜ pending |
-| 2-01-03 | 01 | 1 | EMBED-03 | — | N/A | unit | `npm test -- --testPathPattern=database` | ❌ W0 | ⬜ pending |
-| 2-02-01 | 02 | 1 | MEM-01 | — | N/A | unit | `npm test -- --testPathPattern=memory` | ❌ W0 | ⬜ pending |
-| 2-02-02 | 02 | 1 | MEM-02 | — | Results scoped to user_id only | unit | `npm test -- --testPathPattern=memory` | ❌ W0 | ⬜ pending |
-| 2-02-03 | 02 | 1 | MEM-03 | — | Cosine < 0.90 inserts; >= 0.90 updates | unit | `npm test -- --testPathPattern=memory` | ❌ W0 | ⬜ pending |
-| 2-02-04 | 02 | 1 | MEM-04 | — | N/A | unit | `npm test -- --testPathPattern=memory` | ❌ W0 | ⬜ pending |
-| 2-03-01 | 03 | 2 | MEM-05 | — | N/A | unit | `npm test -- --testPathPattern=people` | ❌ W0 | ⬜ pending |
-| 2-03-02 | 03 | 2 | MEM-06 | — | user_id filter enforced on all queries | unit | `npm test -- --testPathPattern=people` | ❌ W0 | ⬜ pending |
+| 2-01-01 | 01 | 1 | EMBED-01 | — | N/A | unit | `pnpm test` | ❌ W0 | ⬜ pending |
+| 2-01-02 | 01 | 1 | EMBED-02 | — | Startup fails if EMBEDDING_DIMS != 1536 | unit | `pnpm test` | ❌ W0 | ⬜ pending |
+| 2-01-03 | 01 | 1 | EMBED-03 | — | N/A | unit | `pnpm test` | ❌ W0 | ⬜ pending |
+| 2-02-01 | 02 | 1 | MEM-01 | — | N/A | unit | `pnpm test` | ❌ W0 | ⬜ pending |
+| 2-02-02 | 02 | 1 | MEM-02 | — | Results scoped to user_id only | unit | `pnpm test` | ❌ W0 | ⬜ pending |
+| 2-02-03 | 02 | 1 | MEM-03 | — | Cosine < 0.90 inserts; >= 0.90 updates | unit | `pnpm test` | ❌ W0 | ⬜ pending |
+| 2-02-04 | 02 | 1 | MEM-04 | — | N/A | unit | `pnpm test` | ❌ W0 | ⬜ pending |
+| 2-03-01 | 03 | 2 | MEM-05 | — | N/A | unit | `pnpm test` | ❌ W0 | ⬜ pending |
+| 2-03-02 | 03 | 2 | MEM-06 | — | user_id filter enforced on all queries | unit | `pnpm test` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 

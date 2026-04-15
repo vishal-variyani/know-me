@@ -589,7 +589,7 @@ await this.pool.query(
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Missing UNIQUE constraint on `people(user_id, name)`**
    - What we know: The Phase 1 migration for `people` does not show a `UNIQUE(user_id, name)` constraint in the live schema inspection (only `PRIMARY KEY` and B-tree `idx_people_user_id`).
