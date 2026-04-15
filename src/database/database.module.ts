@@ -17,6 +17,10 @@ import { PG_POOL } from './database.constants.js';
         pool.on('connect', (client) => {
           pgvector.registerTypes(client);
         });
+        // Required: prevents idle-client errors from crashing the process.
+        pool.on('error', (err) => {
+          console.error('[DatabaseModule] Idle pg client error', err);
+        });
         return pool;
       },
     },
