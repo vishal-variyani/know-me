@@ -44,6 +44,8 @@ export class PeopleService {
        RETURNING id, user_id, name, aliases, facts, created_at, updated_at`,
       [userId, name, JSON.stringify(facts)],
     );
-    return result.rows[0];
+    const row = result.rows[0];
+    if (!row) throw new Error(`[PeopleService] upsertPerson returned no row for name=${name}`);
+    return row;
   }
 }
