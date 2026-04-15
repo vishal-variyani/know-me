@@ -24,7 +24,9 @@ export class MemoryService {
        RETURNING id, user_id, title, created_at, updated_at`,
       [userId, title ?? null],
     );
-    return result.rows[0];
+    const row = result.rows[0];
+    if (!row) throw new Error(`[MemoryService] createConversation returned no row for userId=${userId}`);
+    return row;
   }
 
   async addMessage(
@@ -39,7 +41,9 @@ export class MemoryService {
        RETURNING id, conversation_id, user_id, role, content, created_at`,
       [conversationId, userId, role, content],
     );
-    return result.rows[0];
+    const row = result.rows[0];
+    if (!row) throw new Error(`[MemoryService] addMessage returned no row for conversationId=${conversationId}`);
+    return row;
   }
 
   async saveMessageEmbedding(
