@@ -11,6 +11,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import 'multer';
 import { ExtractionService } from '../extraction/extraction.service.js';
 import type { UploadAcceptedResponse } from './upload.types.js';
 
