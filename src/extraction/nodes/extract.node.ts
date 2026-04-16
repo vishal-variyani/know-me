@@ -1,37 +1,121 @@
-import { z } from 'zod';
 import { ChatOpenAI } from '@langchain/openai';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { Logger } from '@nestjs/common';
+import { plainToInstance, Type } from 'class-transformer';
+import {
+  IsArray,
+  IsIn,
+  IsString,
+  type ValidationError,
+  ValidateNested,
+  validateSync,
+} from 'class-validator';
 import type { ExtractionState } from '../extraction.types.js';
 
-// ---------------------------------------------------------------------------
-// Zod schema (D-05) — defines the structured output the LLM must return.
-// withStructuredOutput(ExtractOutputSchema) enforces this at runtime:
-// any malformed response throws and triggers the D-06 retry-then-absorb path.
-// ---------------------------------------------------------------------------
+const EMOTIONAL_TONE_VALUES = [
+  'neutral',
+  'positive',
+  'negative',
+  'anxious',
+  'excited',
+  'sad',
+  'frustrated',
+] as const;
+type EmotionalTone = (typeof EMOTIONAL_TONE_VALUES)[number];
 
-const PersonExtractionSchema = z.object({
-  name: z.string(),
-  relationship: z.string(),
-  facts: z.array(z.string()),
-});
+const EMOTIONAL_TONE_SYNONYMS: Record<string, EmotionalTone> = {
+  happy: 'positive',
+  joyful: 'positive',
+  optimistic: 'positive',
+  relieved: 'positive',
+  grateful: 'positive',
+  excited: 'excited',
+  calm: 'neutral',
+  okay: 'neutral',
+  ok: 'neutral',
+  mixed: 'neutral',
+  uncertain: 'anxious',
+  worried: 'anxious',
+  stressed: 'anxious',
+  nervous: 'anxious',
+  angry: 'frustrated',
+  annoyed: 'frustrated',
+  upset: 'negative',
+  disappointed: 'negative',
+  unhappy: 'negative',
+  down: 'sad',
+  depressed: 'sad',
+};
 
-const ExtractOutputSchema = z.object({
-  people: z.array(PersonExtractionSchema),
-  topics: z.array(z.string()),
-  emotionalTone: z.enum([
-    'neutral',
-    'positive',
-    'negative',
-    'anxious',
-    'excited',
-    'sad',
-    'frustrated',
-  ]),
-  keyFacts: z.array(z.string()),
-});
+class PersonExtractionDto {
+  @IsString()
+  name!: string;
 
-type ExtractOutput = z.infer<typeof ExtractOutputSchema>;
+  @IsString()
+  relationship!: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  facts!: string[];
+}
+
+class ExtractOutputDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PersonExtractionDto)
+  people!: PersonExtractionDto[];
+
+  @IsArray()
+  @IsString({ each: true })
+  topics!: string[];
+
+  @IsString()
+  @IsIn(EMOTIONAL_TONE_VALUES)
+  emotionalTone!: EmotionalTone;
+
+  @IsArray()
+  @IsString({ each: true })
+  keyFacts!: string[];
+}
+
+type ExtractOutput = {
+  people: { name: string; relationship: string; facts: string[] }[];
+  topics: string[];
+  emotionalTone: EmotionalTone;
+  keyFacts: string[];
+};
+
+const EXTRACT_OUTPUT_JSON_SCHEMA = {
+  type: 'object',
+  properties: {
+    people: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          relationship: { type: 'string' },
+          facts: { type: 'array', items: { type: 'string' } },
+        },
+        required: ['name', 'relationship', 'facts'],
+        additionalProperties: false,
+      },
+    },
+    topics: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    emotionalTone: {
+      type: 'string',
+    },
+    keyFacts: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+  },
+  required: ['people', 'topics', 'emotionalTone', 'keyFacts'],
+  additionalProperties: false,
+} as const;
 
 // ---------------------------------------------------------------------------
 // System prompt — instructs GPT-4o-mini on what to extract and how to format it.
@@ -77,7 +161,7 @@ export function makeExtractNode(llm: ChatOpenAI, logger: Logger) {
     ['system', EXTRACT_SYSTEM_PROMPT],
     ['human', '{content}'],
   ]);
-  const chain = prompt.pipe(llm.withStructuredOutput(ExtractOutputSchema));
+  const chain = prompt.pipe(llm.withStructuredOutput(EXTRACT_OUTPUT_JSON_SCHEMA));
 
   return async function extractNode(
     state: ExtractionState,
@@ -87,7 +171,8 @@ export function makeExtractNode(llm: ChatOpenAI, logger: Logger) {
     // D-06: Try once, retry once on failure, absorb on second failure.
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
-        const result = await chain.invoke({ content });
+        const result = (await chain.invoke({ content })) as ExtractOutput;
+        validateExtractOutput(result);
         logger.debug(
           `[${correlationId}] extractNode people=${result.people.length} keyFacts=${result.keyFacts.length}`,
         );
@@ -105,4 +190,41 @@ export function makeExtractNode(llm: ChatOpenAI, logger: Logger) {
     // TypeScript exhaustiveness — loop above always returns or falls through here.
     return { extractResult: EMPTY_RESULT };
   };
+}
+
+function validateExtractOutput(result: ExtractOutput): void {
+  result.emotionalTone = normalizeEmotionalTone(result.emotionalTone);
+  const dto = plainToInstance(ExtractOutputDto, result);
+  const errors = validateSync(dto, { whitelist: true, forbidNonWhitelisted: true });
+  if (errors.length > 0) {
+    const formatted = formatValidationErrors(errors).join('; ');
+    throw new Error(`Invalid extract output payload: ${formatted}`);
+  }
+}
+
+function normalizeEmotionalTone(raw: string): EmotionalTone {
+  const normalized = raw.toLowerCase().trim();
+  if ((EMOTIONAL_TONE_VALUES as readonly string[]).includes(normalized)) {
+    return normalized as EmotionalTone;
+  }
+  return EMOTIONAL_TONE_SYNONYMS[normalized] ?? 'neutral';
+}
+
+function formatValidationErrors(
+  errors: ValidationError[],
+  parentPath = '',
+): string[] {
+  const output: string[] = [];
+  for (const err of errors) {
+    const path = parentPath ? `${parentPath}.${err.property}` : err.property;
+    if (err.constraints) {
+      for (const message of Object.values(err.constraints)) {
+        output.push(`${path}: ${message}`);
+      }
+    }
+    if (err.children && err.children.length > 0) {
+      output.push(...formatValidationErrors(err.children, path));
+    }
+  }
+  return output;
 }

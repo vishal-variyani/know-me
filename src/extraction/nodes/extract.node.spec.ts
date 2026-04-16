@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import 'reflect-metadata';
 import { Logger } from '@nestjs/common';
 import type { ChatOpenAI } from '@langchain/openai';
 import type { ExtractionState } from '../extraction.types.js';
@@ -115,5 +116,17 @@ describe('extractNode', () => {
     expect(mockLogger.debug).toHaveBeenCalledWith(
       expect.stringContaining('keyFacts=1'),
     );
+  });
+
+  it('normalizes emotionalTone synonyms to allowed enum', async () => {
+    mockInvoke.mockResolvedValueOnce({
+      ...VALID_RESULT,
+      emotionalTone: 'happy',
+    });
+
+    const extractNode = makeExtractNode(mockLlm, mockLogger);
+    const result = await extractNode(makeState());
+
+    expect(result.extractResult?.emotionalTone).toBe('positive');
   });
 });
