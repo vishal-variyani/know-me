@@ -89,6 +89,13 @@ export class ChatGateway
     const ctrl = this.abortControllers.get(client.id);
     if (!ctrl) return; // client disconnected before handler ran
 
+    // WR-02: Validate payload before any async work
+    const text = (payload?.message ?? '').trim();
+    if (!text || text.length > 4000) {
+      client.emit('chat:error', { message: 'Invalid message: must be 1–4000 characters' } satisfies ChatErrorPayload);
+      return;
+    }
+
     // Lazy conversation creation
     let conversationId = this.conversationIds.get(client.id);
     if (!conversationId) {
@@ -97,33 +104,36 @@ export class ChatGateway
       this.conversationIds.set(client.id, conversationId);
     }
 
-    // Persist user message
-    await this.memoryService.addMessage(conversationId, userId, 'user', payload.message);
-
     let fullResponse = '';
     try {
-      // Fetch history and retrieval context concurrently (D-01: last 10 messages)
+      // WR-01: Fetch history and retrieval context BEFORE persisting user message
+      // to avoid the current turn appearing twice in the LLM prompt.
       const [memoryContext, history] = await Promise.all([
-        this.retrievalService.retrieve(payload.message, userId),
+        this.retrievalService.retrieve(text, userId),
         this.memoryService.getRecentMessages(conversationId, HISTORY_LIMIT),
       ]);
 
-      const messages = buildMessages(memoryContext, history, payload.message);
+      // Persist user message after history fetch (D-01: last 10 messages)
+      await this.memoryService.addMessage(conversationId, userId, 'user', text);
+
+      const messages = buildMessages(memoryContext, history, text);
 
       for await (const token of this.llmService.streamResponse(messages, ctrl.signal)) {
         client.emit('chat:chunk', { token } satisfies ChatChunkPayload);
         fullResponse += token;
       }
 
-      // Persist assistant response
-      await this.memoryService.addMessage(conversationId, userId, 'assistant', fullResponse);
+      // WR-03: Only persist assistant response if the stream yielded tokens
+      if (fullResponse.length > 0) {
+        await this.memoryService.addMessage(conversationId, userId, 'assistant', fullResponse);
+      }
 
       client.emit('chat:complete', { conversationId } satisfies ChatCompletePayload);
 
       // Fire-and-forget extraction — NEVER await (CHAT-06)
       void this.extractionService
         .enqueue(
-          payload.message + '\n' + fullResponse,
+          text + '\n' + fullResponse,
           userId,
           'conversation',
         )
