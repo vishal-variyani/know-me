@@ -111,7 +111,7 @@ Plans:
 
 ### Phase 4: Extraction Pipeline
 
-**Goal**: Every message and document text that passes through the system is asynchronously analyzed by a LangGraph pipeline (Classify → Extract → Validate → Store) that persists only HIGH-confidence facts as memory entries and relationship people rows.
+**Goal**: Every message and document text that passes through the system is asynchronously analyzed by a LangGraph pipeline (Classify → Extract → Validate → Store) that persists facts as memory entries and people rows — without blocking the chat response path.
 
 **Depends on**: Phase 2 (EmbeddingService and MemoryService), Phase 3 (ChatGateway calls enqueue())
 
@@ -119,19 +119,19 @@ Plans:
 
 **Success Criteria** (what must be TRUE):
   1. Calling `ExtractionService.enqueue(text, userId, 'conversation')` adds a BullMQ job to the `extraction` queue and returns immediately — the caller does not wait for pipeline completion
-  2. A message containing a clear user preference (e.g., "I love spicy food") results in a memory_entry row in the database within 30 seconds, with `fact_type = 'preference'` and `confidence` in the HIGH range
+  2. A message containing a relationship reference (e.g., "my friend Jake is a software engineer") results in a people row for Jake and a memory_entry with `fact_type = 'fact'`, with the people row linked via `upsertPerson()`
   3. A message with no extractable facts (e.g., "ok") results in the Classify node returning `shouldExtract: false` and the Extract node being skipped entirely
-  4. A message containing a relationship reference (e.g., "my friend Jake is a software engineer") results in a people row for Jake and a memory_entry with `fact_type = 'relationship'`, with the people row linked via `upsertPerson()`
-  5. Submitting the same fact twice does not create two memory_entries — the second run updates `last_reinforced_at` and `confidence` on the existing row
-  6. A BullMQ job that fails on all 3 attempts lands in the failed queue and does not crash the NestJS process; each failure is logged via NestJS Logger with a correlation ID
+  4. Submitting the same fact twice does not create two memory_entries — the second run updates `last_reinforced_at` and `confidence` on the existing row
+  5. A BullMQ job that fails on all 3 attempts lands in the failed queue and does not crash the NestJS process; each failure is logged via NestJS Logger with a correlation ID (BullMQ job ID)
+  6. Validate node filters pronouns and generic references, normalizes names to title-case, deduplicates within-batch, and maps relationship synonyms before any DB write occurs
 
 **Plans**: 4 plans
 
 Plans:
-- [ ] 04-01: Install `@nestjs/bullmq`, `bullmq`; configure `BullModule.forRoot()` in `AppModule` using Redis connection from env vars; create `ExtractionModule` with `BullModule.registerQueue({ name: 'extraction' })` and `ExtractionProcessor extends WorkerHost` with `concurrency: 3`, `attempts: 3`, exponential backoff
-- [ ] 04-02: Implement the Classify and Extract LangGraph nodes — Classify uses GPT-4o-mini (from `OPENAI_EXTRACTION_MODEL`) to determine `shouldExtract` and `categories[]`; Extract uses GPT-4o-mini with Zod schema to produce `MemoryFact[]` with `content`, `factType`, `directlyStated`, `confidence: HIGH|MEDIUM|LOW`; conditional edge skips Extract if `shouldExtract = false`
-- [ ] 04-03: Implement the Validate and Store LangGraph nodes — Validate runs Zod schema validation then deduplication via `MemoryService.findSimilar()` (cosine > 0.90 = duplicate), then sends contradictions to GPT-4o-mini for UPDATE/APPEND/IGNORE arbitration; Store calls `EmbeddingService.embed()` then `MemoryService.upsertMemoryEntry()` for HIGH-confidence facts only, and `PeopleService.upsertPerson()` for relationship facts; UPDATE path soft-deletes old entry and sets `supersedes` FK
-- [ ] 04-04: Wire `ExtractionService` to compose the `StateGraph` in its constructor; wrap all four nodes in try/catch with NestJS Logger + correlation ID; re-throw errors to trigger BullMQ retry; verify `ExtractionService.enqueue()` is the only public surface and that ChatGateway's no-op stub is replaced with the real call
+- [ ] 04-01-PLAN.md — Install 6 packages (@nestjs/bullmq, bullmq, ioredis, @langchain/langgraph, class-validator, class-transformer); create extraction.types.ts (ExtractionState, ExtractionJobPayload, PersonExtraction); create ExtractionProcessor (WorkerHost, concurrency: 3); update ExtractionModule with BullMQ queue registration; wire BullModule.forRootAsync in AppModule
+- [ ] 04-02-PLAN.md — Implement makeClassifyNode (rule-based: proper noun detection + trivial filter, zero LLM cost); implement makeExtractNode (GPT-4o-mini with Zod-validated JSON output schema: people[], topics[], emotionalTone, keyFacts[]); retry-once-then-absorb error handling for Extract
+- [ ] 04-03-PLAN.md — Implement makeValidateNode (title-case normalization, honorific stripping, pronoun filter, within-batch dedup, relationship synonym mapping, conditional END); implement makeStoreNode (PeopleService.upsertPerson per person, EmbeddingService.embed + MemoryService.upsertMemoryEntry per keyFact); update FactType enum to 'fact|preference|relationship|emotion'; write Supabase migration for CHECK constraint update
+- [ ] 04-04-PLAN.md — Replace ExtractionService stub with full implementation: StateGraph compiled in onModuleInit(), enqueue() adds BullMQ job with attempts:3 + exponential backoff, runGraph() invokes graph with error boundary that re-throws for BullMQ retry; human-verify checkpoint confirming end-to-end pipeline and migration push
 
 **UI hint**: no
 
@@ -217,3 +217,4 @@ Plans:
 *Generated: 2026-04-15*
 *Phase 1 plans created: 2026-04-15*
 *Phase 3 plans created: 2026-04-16*
+*Phase 4 plans created: 2026-04-16*
