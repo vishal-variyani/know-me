@@ -13,11 +13,16 @@ import { LlmService } from './llm.service.js';
 describe('LlmService', () => {
   let service: LlmService;
   let mockConfigService: { getOrThrow: ReturnType<typeof vi.fn> };
+  let primaryLlm: { stream: ReturnType<typeof vi.fn> };
+  let fallbackLlm: { stream: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     mockConfigService = {
       getOrThrow: vi.fn((key: string) => {
         if (key === 'OPENAI_CHAT_MODEL') return 'gpt-4o-mini';
+        if (key === 'OPENAI_API_KEY') return 'primary-key';
+        if (key === 'OPENAI_FALLBACK_CHAT_MODEL') return 'gpt-4o-mini-fallback';
+        if (key === 'OPENAI_FALLBACK_API_KEY') return 'fallback-key';
         throw new Error(`Unexpected config key: ${key}`);
       }),
     };
@@ -30,6 +35,10 @@ describe('LlmService', () => {
     }).compile();
 
     service = module.get<LlmService>(LlmService);
+    primaryLlm = { stream: vi.fn() };
+    fallbackLlm = { stream: vi.fn() };
+    (service as unknown as { primaryLlm: unknown }).primaryLlm = primaryLlm;
+    (service as unknown as { fallbackLlm: unknown }).fallbackLlm = fallbackLlm;
   });
 
   afterEach(() => {
@@ -42,10 +51,7 @@ describe('LlmService', () => {
         for (const c of contents) yield { content: c };
       }
 
-      const mockLlm = {
-        stream: vi.fn().mockReturnValue(makeChunks(['Hello', ' ', 'world'])),
-      };
-      (service as unknown as { llm: unknown }).llm = mockLlm;
+      primaryLlm.stream.mockReturnValue(makeChunks(['Hello', ' ', 'world']));
 
       const signal = new AbortController().signal;
       const collected: string[] = [];
@@ -54,6 +60,7 @@ describe('LlmService', () => {
       }
 
       expect(collected).toEqual(['Hello', ' ', 'world']);
+      expect(fallbackLlm.stream).not.toHaveBeenCalled();
     });
 
     it('handles AIMessageChunk.content as MessageContentComplex[] — filters non-text chunks', async () => {
@@ -61,10 +68,7 @@ describe('LlmService', () => {
         yield { content: [{ type: 'text', text: 'hi' }, { type: 'tool_use', id: 'x' }] };
       }
 
-      const mockLlm = {
-        stream: vi.fn().mockReturnValue(makeChunks()),
-      };
-      (service as unknown as { llm: unknown }).llm = mockLlm;
+      primaryLlm.stream.mockReturnValue(makeChunks());
 
       const signal = new AbortController().signal;
       const collected: string[] = [];
@@ -81,10 +85,7 @@ describe('LlmService', () => {
         yield { content: 'real' };
       }
 
-      const mockLlm = {
-        stream: vi.fn().mockReturnValue(makeChunks()),
-      };
-      (service as unknown as { llm: unknown }).llm = mockLlm;
+      primaryLlm.stream.mockReturnValue(makeChunks());
 
       const signal = new AbortController().signal;
       const collected: string[] = [];
@@ -94,12 +95,56 @@ describe('LlmService', () => {
 
       expect(collected).toEqual(['real']);
     });
+
+    it('falls back when primary model fails before emitting output', async () => {
+      async function* fallbackChunks() {
+        yield { content: 'fallback' };
+      }
+
+      primaryLlm.stream.mockRejectedValue(new Error('primary down'));
+      fallbackLlm.stream.mockReturnValue(fallbackChunks());
+
+      const signal = new AbortController().signal;
+      const collected: string[] = [];
+      for await (const token of service.streamResponse([], signal)) {
+        collected.push(token);
+      }
+
+      expect(collected).toEqual(['fallback']);
+      expect(fallbackLlm.stream).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not fall back after primary already emitted output', async () => {
+      async function* primaryChunksThenError() {
+        yield { content: 'partial' };
+        throw new Error('primary mid-stream failure');
+      }
+
+      primaryLlm.stream.mockReturnValue(primaryChunksThenError());
+
+      const signal = new AbortController().signal;
+      const stream = service.streamResponse([], signal);
+
+      await expect(stream.next()).resolves.toEqual({
+        done: false,
+        value: 'partial',
+      });
+      await expect(stream.next()).rejects.toThrow('primary mid-stream failure');
+      expect(fallbackLlm.stream).not.toHaveBeenCalled();
+    });
   });
 
   describe('onModuleInit', () => {
-    it('reads OPENAI_CHAT_MODEL from ConfigService.getOrThrow', () => {
+    it('reads primary and fallback chat config from ConfigService.getOrThrow', () => {
       service.onModuleInit();
       expect(mockConfigService.getOrThrow).toHaveBeenCalledWith('OPENAI_CHAT_MODEL');
+      expect(mockConfigService.getOrThrow).toHaveBeenCalledWith('OPENAI_API_KEY');
+      expect(mockConfigService.getOrThrow).toHaveBeenCalledWith(
+        'OPENAI_FALLBACK_CHAT_MODEL',
+      );
+      expect(mockConfigService.getOrThrow).toHaveBeenCalledWith(
+        'OPENAI_FALLBACK_API_KEY',
+      );
     });
   });
 });
