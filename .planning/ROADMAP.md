@@ -102,7 +102,7 @@ Plans:
 Plans:
 - [x] 03-01-PLAN.md — Implement `RetrievalModule` with `RetrievalService.retrieve(text, userId)` — parallel `Promise.all` of embed+searchSimilar (arm 1) and detectNames+lookupByNames (arm 2); returns `MemoryContext`; unit tested with mocked services
 - [x] 03-02-PLAN.md — Install `@langchain/anthropic`; implement `LlmModule` with `LlmService` — `ChatAnthropic` streaming:true + model from ANTHROPIC_MODEL; `streamResponse(messages, signal)` returns `AsyncIterable<string>`; unit tested with mocked ChatAnthropic
-- [ ] 03-03-PLAN.md — Add `MemoryService.getRecentMessages(conversationId, limit)` (chronological order); create `ExtractionService` stub (no-op enqueue); define chat event payload types; wire `ChatModule` scaffold with all 4 dependencies
+- [x] 03-03-PLAN.md — Add `MemoryService.getRecentMessages(conversationId, limit)` (chronological order); create `ExtractionService` stub (no-op enqueue); define chat event payload types; wire `ChatModule` scaffold with all 4 dependencies
 - [ ] 03-04-PLAN.md — Implement full `ChatGateway` — UUID middleware in afterInit(); per-socket AbortController Map; handleChatSend streaming loop emitting chat:chunk/chat:complete; memory injection at 0.7 threshold; D-01/D-02 10-message history; fire-and-forget extraction; wire into AppModule
 
 **UI hint**: no
