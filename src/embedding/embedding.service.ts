@@ -35,4 +35,12 @@ export class EmbeddingService implements OnModuleInit {
     }
     return this.embeddings.embedQuery(text);
   }
+
+  async embedBatch(texts: string[]): Promise<number[][]> {
+    if (!this.embeddings) {
+      throw new Error('[EmbeddingService] embeddings not initialized — was onModuleInit called?');
+    }
+    if (texts.length === 0) return [];
+    return this.embeddings.embedDocuments(texts);
+  }
 }

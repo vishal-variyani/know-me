@@ -4,13 +4,14 @@ import {
   UnsupportedMediaTypeException,
 } from '@nestjs/common';
 import { UploadController } from './upload.controller.js';
-import { ExtractionService } from '../extraction/extraction.service.js';
+import { DocumentService } from '../document/document.service.js';
 
 describe('UploadController', () => {
   let controller: UploadController;
-  let mockExtractionService: { enqueue: ReturnType<typeof vi.fn> };
+  let mockDocumentService: { processUpload: ReturnType<typeof vi.fn> };
 
   const validUserId = 'a0000000-0000-0000-0000-000000000000';
+  const conversationId = 'b0000000-0000-0000-0000-000000000000';
 
   function makeFile(
     originalname: string,
@@ -32,14 +33,14 @@ describe('UploadController', () => {
   }
 
   beforeEach(async () => {
-    mockExtractionService = {
-      enqueue: vi.fn().mockResolvedValue(undefined),
+    mockDocumentService = {
+      processUpload: vi.fn().mockResolvedValue({ status: 'accepted' }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [UploadController],
       providers: [
-        { provide: ExtractionService, useValue: mockExtractionService },
+        { provide: DocumentService, useValue: mockDocumentService },
       ],
     }).compile();
 
@@ -53,15 +54,15 @@ describe('UploadController', () => {
   describe('POST /upload — happy paths', () => {
     it('accepts valid .txt file with valid UUID and calls enqueue once with document', async () => {
       const file = makeFile('notes.txt', 'text/plain', Buffer.from('Hello world'));
-      const result = await controller.uploadDocument(validUserId, file);
+      const result = await controller.uploadDocument(conversationId, validUserId, file);
 
       expect(result).toEqual({ status: 'accepted' });
-      expect(mockExtractionService.enqueue).toHaveBeenCalledTimes(1);
-      expect(mockExtractionService.enqueue).toHaveBeenCalledWith(
-        'Hello world',
-        validUserId,
-        'document',
-      );
+      expect(mockDocumentService.processUpload).toHaveBeenCalledTimes(1);
+      expect(mockDocumentService.processUpload).toHaveBeenCalledWith({
+        text: 'Hello world',
+        userId: validUserId,
+        filename: 'notes.txt',
+      });
     });
 
     it('accepts valid .md file with valid UUID and calls enqueue once', async () => {
@@ -70,15 +71,15 @@ describe('UploadController', () => {
         'text/markdown',
         Buffer.from('## Today\nDid things'),
       );
-      const result = await controller.uploadDocument(validUserId, file);
+      const result = await controller.uploadDocument(conversationId, validUserId, file);
 
       expect(result).toEqual({ status: 'accepted' });
-      expect(mockExtractionService.enqueue).toHaveBeenCalledTimes(1);
-      expect(mockExtractionService.enqueue).toHaveBeenCalledWith(
-        '## Today\nDid things',
-        validUserId,
-        'document',
-      );
+      expect(mockDocumentService.processUpload).toHaveBeenCalledTimes(1);
+      expect(mockDocumentService.processUpload).toHaveBeenCalledWith({
+        text: '## Today\nDid things',
+        userId: validUserId,
+        filename: 'journal.md',
+      });
     });
   });
 
@@ -87,25 +88,33 @@ describe('UploadController', () => {
       const file = makeFile('notes.txt', 'text/plain', Buffer.from('content'));
 
       await expect(
-        controller.uploadDocument(undefined as unknown as string, file),
+        controller.uploadDocument(
+          conversationId,
+          undefined as unknown as string,
+          file,
+        ),
       ).rejects.toThrow(BadRequestException);
-      expect(mockExtractionService.enqueue).not.toHaveBeenCalled();
+      expect(mockDocumentService.processUpload).not.toHaveBeenCalled();
     });
 
     it('throws 400 when userId is not a valid UUID', async () => {
       const file = makeFile('notes.txt', 'text/plain', Buffer.from('content'));
 
       await expect(
-        controller.uploadDocument('not-a-uuid', file),
+        controller.uploadDocument(conversationId, 'not-a-uuid', file),
       ).rejects.toThrow(BadRequestException);
-      expect(mockExtractionService.enqueue).not.toHaveBeenCalled();
+      expect(mockDocumentService.processUpload).not.toHaveBeenCalled();
     });
 
     it('throws 400 when file is missing', async () => {
       await expect(
-        controller.uploadDocument(validUserId, undefined as unknown as Express.Multer.File),
+        controller.uploadDocument(
+          conversationId,
+          validUserId,
+          undefined as unknown as Express.Multer.File,
+        ),
       ).rejects.toThrow(BadRequestException);
-      expect(mockExtractionService.enqueue).not.toHaveBeenCalled();
+      expect(mockDocumentService.processUpload).not.toHaveBeenCalled();
     });
 
     it('throws 415 when file has unsupported extension (.pdf)', async () => {
@@ -116,9 +125,9 @@ describe('UploadController', () => {
       );
 
       await expect(
-        controller.uploadDocument(validUserId, file),
+        controller.uploadDocument(conversationId, validUserId, file),
       ).rejects.toThrow(UnsupportedMediaTypeException);
-      expect(mockExtractionService.enqueue).not.toHaveBeenCalled();
+      expect(mockDocumentService.processUpload).not.toHaveBeenCalled();
     });
 
     it('throws 415 when file has unsupported extension even with text mime', async () => {
@@ -129,27 +138,27 @@ describe('UploadController', () => {
       );
 
       await expect(
-        controller.uploadDocument(validUserId, file),
+        controller.uploadDocument(conversationId, validUserId, file),
       ).rejects.toThrow(UnsupportedMediaTypeException);
-      expect(mockExtractionService.enqueue).not.toHaveBeenCalled();
+      expect(mockDocumentService.processUpload).not.toHaveBeenCalled();
     });
 
     it('throws 400 when file content is empty after trimming', async () => {
       const file = makeFile('notes.txt', 'text/plain', Buffer.from('   '));
 
       await expect(
-        controller.uploadDocument(validUserId, file),
+        controller.uploadDocument(conversationId, validUserId, file),
       ).rejects.toThrow(BadRequestException);
-      expect(mockExtractionService.enqueue).not.toHaveBeenCalled();
+      expect(mockDocumentService.processUpload).not.toHaveBeenCalled();
     });
 
     it('throws 400 when file buffer is empty', async () => {
       const file = makeFile('notes.txt', 'text/plain', Buffer.alloc(0));
 
       await expect(
-        controller.uploadDocument(validUserId, file),
+        controller.uploadDocument(conversationId, validUserId, file),
       ).rejects.toThrow(BadRequestException);
-      expect(mockExtractionService.enqueue).not.toHaveBeenCalled();
+      expect(mockDocumentService.processUpload).not.toHaveBeenCalled();
     });
   });
 
@@ -160,16 +169,16 @@ describe('UploadController', () => {
       const file = makeFile('large.txt', 'text/plain', bigContent);
 
       await expect(
-        controller.uploadDocument(validUserId, file),
+        controller.uploadDocument(conversationId, validUserId, file),
       ).rejects.toThrow(BadRequestException);
-      expect(mockExtractionService.enqueue).not.toHaveBeenCalled();
+      expect(mockDocumentService.processUpload).not.toHaveBeenCalled();
     });
 
     it('accepts file exactly at 50KB limit', async () => {
       const exactContent = Buffer.alloc(50 * 1024, 'a');
       const file = makeFile('limit.txt', 'text/plain', exactContent);
 
-      const result = await controller.uploadDocument(validUserId, file);
+      const result = await controller.uploadDocument(conversationId, validUserId, file);
       expect(result).toEqual({ status: 'accepted' });
     });
   });

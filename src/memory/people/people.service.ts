@@ -1,8 +1,8 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import nlp from 'compromise';
 import { Pool } from 'pg';
-import { PG_POOL } from '../database/database.constants.js';
-import { PersonRow } from './memory.types.js';
+import { PG_POOL } from '../../database/database.constants.js';
+import { PersonRow } from '../memory.types.js';
 
 @Injectable()
 export class PeopleService {

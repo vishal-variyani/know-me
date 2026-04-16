@@ -112,7 +112,6 @@ export class ChatGateway
         this.retrievalService.retrieve(text, userId),
         this.memoryService.getRecentMessages(conversationId, HISTORY_LIMIT),
       ]);
-      console.log('memoryContext', memoryContext);
       // Persist user message after history fetch (D-01: last 10 messages)
       await this.memoryService.addMessage(conversationId, userId, 'user', text);
 
@@ -179,7 +178,16 @@ console
           .join('\n')
       : '';
 
-  const contextSection = [memoryBlock, peopleBlock].filter(Boolean).join('\n');
+  const chunkBlock =
+    ctx.chunks.length > 0
+      ? ctx.chunks
+          .map((c) => `[Context(${c.source}) score=${c.similarity.toFixed(2)}: ${c.content}]`)
+          .join('\n')
+      : '';
+
+  const contextSection = [memoryBlock, peopleBlock, chunkBlock]
+    .filter(Boolean)
+    .join('\n');
 
   return contextSection
     ? `You are a helpful assistant with memory of this user.\n\n${contextSection}`

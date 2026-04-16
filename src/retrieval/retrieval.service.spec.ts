@@ -12,6 +12,7 @@ describe('RetrievalService', () => {
   };
   let mockMemoryService: {
     searchSimilar: ReturnType<typeof vi.fn>;
+    searchRelevantEmbeddings: ReturnType<typeof vi.fn>;
   };
   let mockPeopleService: {
     detectNames: ReturnType<typeof vi.fn>;
@@ -43,6 +44,7 @@ describe('RetrievalService', () => {
     };
     mockMemoryService = {
       searchSimilar: vi.fn().mockResolvedValue([fakeMemory]),
+      searchRelevantEmbeddings: vi.fn().mockResolvedValue([]),
     };
     mockPeopleService = {
       detectNames: vi.fn().mockReturnValue(['Sarah']),
@@ -87,6 +89,7 @@ describe('RetrievalService', () => {
 
       expect(result).toEqual({
         memories: [fakeMemory],
+        chunks: [],
         people: [fakePerson],
       });
     });

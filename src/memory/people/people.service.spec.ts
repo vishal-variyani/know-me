@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { PG_POOL } from '../database/database.constants.js';
+import { PG_POOL } from '../../database/database.constants.js';
 import { PeopleService } from './people.service.js';
-import type { PersonRow } from './memory.types.js';
+import type { PersonRow } from '../memory.types.js';
 
 describe('PeopleService', () => {
   let service: PeopleService;
