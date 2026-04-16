@@ -1,18 +1,18 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ChatAnthropic } from '@langchain/anthropic';
+import { ChatOpenAI } from '@langchain/openai';
 import type { BaseMessage } from '@langchain/core/messages';
 
 @Injectable()
 export class LlmService implements OnModuleInit {
   private readonly logger = new Logger(LlmService.name);
-  private llm!: ChatAnthropic;
+  private llm!: ChatOpenAI;
 
   constructor(private readonly config: ConfigService) {}
 
   onModuleInit(): void {
-    const model = this.config.getOrThrow<string>('ANTHROPIC_MODEL');
-    this.llm = new ChatAnthropic({ model, streaming: true });
+    const model = this.config.getOrThrow<string>('OPENAI_CHAT_MODEL');
+    this.llm = new ChatOpenAI({ model, temperature: 0, streaming: true });
     this.logger.log(`LlmService initialized with model=${model}`);
   }
 

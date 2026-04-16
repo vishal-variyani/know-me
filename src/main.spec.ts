@@ -2,7 +2,8 @@ import { validateEnv } from './main.js';
 
 describe('validateEnv', () => {
   const REQUIRED_VARS = [
-    'ANTHROPIC_MODEL',
+    'OPENAI_API_KEY',
+    'OPENAI_CHAT_MODEL',
     'OPENAI_EXTRACTION_MODEL',
     'OPENAI_EMBEDDING_MODEL',
     'EMBEDDING_DIMS',

@@ -123,4 +123,54 @@ export class MemoryService {
     // Reverse to chronological order — DB returns newest-first for efficiency with LIMIT
     return result.rows.reverse();
   }
+
+  async getConversationHistoryPage(
+    conversationId: string,
+    userId: string,
+    limit: number,
+    beforeCreatedAt?: Date,
+    beforeId?: string,
+  ): Promise<{
+    messages: ConversationMessageRow[];
+    hasMore: boolean;
+    nextCursor: { beforeCreatedAt: string; beforeId: string } | null;
+  }> {
+    const fetchLimit = limit + 1;
+    const result = await this.pool.query<ConversationMessageRow>(
+      `SELECT id, conversation_id, user_id, role, content, created_at
+       FROM conversation_messages
+       WHERE conversation_id = $1
+         AND user_id = $2
+         AND (
+           $3::timestamptz IS NULL
+           OR $4::uuid IS NULL
+           OR (created_at, id) < ($3::timestamptz, $4::uuid)
+         )
+       ORDER BY created_at DESC, id DESC
+       LIMIT $5`,
+      [
+        conversationId,
+        userId,
+        beforeCreatedAt?.toISOString() ?? null,
+        beforeId ?? null,
+        fetchLimit,
+      ],
+    );
+
+    const hasMore = result.rows.length > limit;
+    const pageRowsDesc = hasMore ? result.rows.slice(0, limit) : result.rows;
+    const oldestRow = pageRowsDesc[pageRowsDesc.length - 1] ?? null;
+
+    return {
+      // Return chronological order for direct UI rendering
+      messages: pageRowsDesc.reverse(),
+      hasMore,
+      nextCursor: oldestRow
+        ? {
+            beforeCreatedAt: oldestRow.created_at.toISOString(),
+            beforeId: oldestRow.id,
+          }
+        : null,
+    };
+  }
 }

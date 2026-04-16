@@ -54,3 +54,7 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+
+#GSD
+.claude/
+.planning/

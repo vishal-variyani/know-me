@@ -1,9 +1,9 @@
 import { vi } from 'vitest';
 
-// Mock ChatAnthropic before importing LlmService so the constructor never reads env vars
-vi.mock('@langchain/anthropic', () => {
-  const ChatAnthropic = vi.fn().mockImplementation(() => ({}));
-  return { ChatAnthropic };
+// Mock ChatOpenAI before importing LlmService so the constructor never reads env vars
+vi.mock('@langchain/openai', () => {
+  const ChatOpenAI = vi.fn().mockImplementation(() => ({}));
+  return { ChatOpenAI };
 });
 
 import { Test, TestingModule } from '@nestjs/testing';
@@ -17,7 +17,7 @@ describe('LlmService', () => {
   beforeEach(async () => {
     mockConfigService = {
       getOrThrow: vi.fn((key: string) => {
-        if (key === 'ANTHROPIC_MODEL') return 'claude-sonnet-4-20250514';
+        if (key === 'OPENAI_CHAT_MODEL') return 'gpt-4o-mini';
         throw new Error(`Unexpected config key: ${key}`);
       }),
     };
@@ -37,7 +37,7 @@ describe('LlmService', () => {
   });
 
   describe('streamResponse', () => {
-    it('yields string tokens from mocked ChatAnthropic.stream()', async () => {
+    it('yields string tokens from mocked ChatOpenAI.stream()', async () => {
       async function* makeChunks(contents: string[]) {
         for (const c of contents) yield { content: c };
       }
@@ -97,9 +97,9 @@ describe('LlmService', () => {
   });
 
   describe('onModuleInit', () => {
-    it('reads ANTHROPIC_MODEL from ConfigService.getOrThrow', () => {
+    it('reads OPENAI_CHAT_MODEL from ConfigService.getOrThrow', () => {
       service.onModuleInit();
-      expect(mockConfigService.getOrThrow).toHaveBeenCalledWith('ANTHROPIC_MODEL');
+      expect(mockConfigService.getOrThrow).toHaveBeenCalledWith('OPENAI_CHAT_MODEL');
     });
   });
 });

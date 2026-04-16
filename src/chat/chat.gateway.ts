@@ -112,7 +112,7 @@ export class ChatGateway
         this.retrievalService.retrieve(text, userId),
         this.memoryService.getRecentMessages(conversationId, HISTORY_LIMIT),
       ]);
-
+      console.log('memoryContext', memoryContext);
       // Persist user message after history fetch (D-01: last 10 messages)
       await this.memoryService.addMessage(conversationId, userId, 'user', text);
 
@@ -168,7 +168,7 @@ function buildSystemPrompt(ctx: MemoryContext): string {
           )
           .join('\n')
       : '';
-
+console
   const peopleBlock =
     ctx.people.length > 0
       ? ctx.people

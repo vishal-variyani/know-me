@@ -230,4 +230,95 @@ describe('MemoryService', () => {
       expect(result).toEqual([]);
     });
   });
+
+  describe('getConversationHistoryPage', () => {
+    it('queries with user scoping + keyset predicate and returns chronological messages', async () => {
+      const rows = [
+        {
+          id: '30000000-0000-0000-0000-000000000003',
+          conversation_id: 'conv-1',
+          user_id: 'u1',
+          role: 'assistant' as const,
+          content: 'c',
+          created_at: new Date('2026-01-03T00:00:00.000Z'),
+        },
+        {
+          id: '20000000-0000-0000-0000-000000000002',
+          conversation_id: 'conv-1',
+          user_id: 'u1',
+          role: 'user' as const,
+          content: 'b',
+          created_at: new Date('2026-01-02T00:00:00.000Z'),
+        },
+      ];
+      mockPool.query.mockResolvedValueOnce({ rows });
+
+      const result = await service.getConversationHistoryPage(
+        'conv-1',
+        'u1',
+        10,
+        new Date('2026-01-04T00:00:00.000Z'),
+        '40000000-0000-0000-0000-000000000004',
+      );
+
+      const [sql, params] = mockPool.query.mock.calls[0] as [string, unknown[]];
+      expect(sql).toMatch(/WHERE conversation_id = \$1/);
+      expect(sql).toMatch(/AND user_id = \$2/);
+      expect(sql).toMatch(/\(created_at, id\) < \(\$3::timestamptz, \$4::uuid\)/);
+      expect(sql).toMatch(/ORDER BY created_at DESC, id DESC/);
+      expect(params[4]).toBe(11); // fetch limit + 1
+
+      expect(result.messages.map((r) => r.id)).toEqual([
+        '20000000-0000-0000-0000-000000000002',
+        '30000000-0000-0000-0000-000000000003',
+      ]);
+      expect(result.hasMore).toBe(false);
+      expect(result.nextCursor).toEqual({
+        beforeCreatedAt: '2026-01-02T00:00:00.000Z',
+        beforeId: '20000000-0000-0000-0000-000000000002',
+      });
+    });
+
+    it('sets hasMore and trims to requested limit', async () => {
+      const rows = [
+        {
+          id: '30000000-0000-0000-0000-000000000003',
+          conversation_id: 'conv-1',
+          user_id: 'u1',
+          role: 'assistant' as const,
+          content: 'c',
+          created_at: new Date('2026-01-03T00:00:00.000Z'),
+        },
+        {
+          id: '20000000-0000-0000-0000-000000000002',
+          conversation_id: 'conv-1',
+          user_id: 'u1',
+          role: 'user' as const,
+          content: 'b',
+          created_at: new Date('2026-01-02T00:00:00.000Z'),
+        },
+        {
+          id: '10000000-0000-0000-0000-000000000001',
+          conversation_id: 'conv-1',
+          user_id: 'u1',
+          role: 'user' as const,
+          content: 'a',
+          created_at: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ];
+      mockPool.query.mockResolvedValueOnce({ rows });
+
+      const result = await service.getConversationHistoryPage('conv-1', 'u1', 2);
+
+      expect(result.messages.map((r) => r.id)).toEqual([
+        '20000000-0000-0000-0000-000000000002',
+        '30000000-0000-0000-0000-000000000003',
+      ]);
+      expect(result.hasMore).toBe(true);
+      expect(result.nextCursor).toEqual({
+        beforeCreatedAt: '2026-01-02T00:00:00.000Z',
+        beforeId: '20000000-0000-0000-0000-000000000002',
+      });
+    });
+  });
 });

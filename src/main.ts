@@ -3,7 +3,8 @@ import { IoAdapter } from '@nestjs/platform-socket.io';
 import { AppModule } from './app.module.js';
 
 const REQUIRED_ENV_VARS = [
-  'ANTHROPIC_MODEL',
+  'OPENAI_API_KEY',
+  'OPENAI_CHAT_MODEL',
   'OPENAI_EXTRACTION_MODEL',
   'OPENAI_EMBEDDING_MODEL',
   'EMBEDDING_DIMS',
@@ -29,6 +30,7 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule);
   app.useWebSocketAdapter(new IoAdapter(app));
+  app.enableCors();
   await app.listen(process.env.PORT ?? 3000);
 }
 // Guard: skip bootstrap when imported by Vitest (process.env.VITEST is set by the test runner)
