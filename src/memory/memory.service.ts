@@ -48,26 +48,6 @@ export class MemoryService {
     return row;
   }
 
-  async saveMessageEmbedding(
-    messageId: string,
-    userId: string,
-    vector: number[],
-    content?: string,
-    metadata?: Record<string, unknown>,
-  ): Promise<void> {
-    await this.pool.query(
-      `INSERT INTO message_embeddings (message_id, user_id, content, embedding, source, metadata)
-       VALUES ($1, $2, $3, $4, 'message', $5::jsonb)`,
-      [
-        messageId,
-        userId,
-        content ?? '',
-        pgvector.toSql(vector),
-        JSON.stringify(metadata ?? {}),
-      ],
-    );
-  }
-
   async storeDocumentChunk(params: {
     userId: string;
     content: string;
@@ -200,25 +180,31 @@ export class MemoryService {
     nextCursor: { beforeCreatedAt: string; beforeId: string } | null;
   }> {
     const fetchLimit = limit + 1;
+    const hasCursor = beforeCreatedAt !== undefined && beforeId !== undefined;
     const result = await this.pool.query<ConversationMessageRow>(
-      `SELECT id, conversation_id, user_id, role, content, created_at
-       FROM conversation_messages
-       WHERE conversation_id = $1
-         AND user_id = $2
-         AND (
-           $3::timestamptz IS NULL
-           OR $4::uuid IS NULL
-           OR (created_at, id) < ($3::timestamptz, $4::uuid)
-         )
-       ORDER BY created_at DESC, id DESC
-       LIMIT $5`,
-      [
-        conversationId,
-        userId,
-        beforeCreatedAt?.toISOString() ?? null,
-        beforeId ?? null,
-        fetchLimit,
-      ],
+      hasCursor
+        ? `SELECT id, conversation_id, user_id, role, content, created_at
+           FROM conversation_messages
+           WHERE conversation_id = $1
+             AND user_id = $2
+             AND (created_at, id) < ($3::timestamptz, $4::uuid)
+           ORDER BY created_at DESC, id DESC
+           LIMIT $5`
+        : `SELECT id, conversation_id, user_id, role, content, created_at
+           FROM conversation_messages
+           WHERE conversation_id = $1
+             AND user_id = $2
+           ORDER BY created_at DESC, id DESC
+           LIMIT $3`,
+      hasCursor
+        ? [
+            conversationId,
+            userId,
+            beforeCreatedAt!.toISOString(),
+            beforeId!,
+            fetchLimit,
+          ]
+        : [conversationId, userId, fetchLimit],
     );
 
     const hasMore = result.rows.length > limit;

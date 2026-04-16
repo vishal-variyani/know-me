@@ -309,11 +309,16 @@ describe('MemoryService', () => {
       mockPool.query.mockResolvedValueOnce({ rows });
 
       const result = await service.getConversationHistoryPage('conv-1', 'u1', 2);
+      const [sql, params] = mockPool.query.mock.calls[0] as [string, unknown[]];
 
       expect(result.messages.map((r) => r.id)).toEqual([
         '20000000-0000-0000-0000-000000000002',
         '30000000-0000-0000-0000-000000000003',
       ]);
+      expect(sql).toMatch(/WHERE conversation_id = \$1/);
+      expect(sql).toMatch(/AND user_id = \$2/);
+      expect(sql).not.toMatch(/\(created_at, id\) < /);
+      expect(params[2]).toBe(3); // limit + 1
       expect(result.hasMore).toBe(true);
       expect(result.nextCursor).toEqual({
         beforeCreatedAt: '2026-01-02T00:00:00.000Z',
