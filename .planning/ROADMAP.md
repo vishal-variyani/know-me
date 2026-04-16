@@ -154,7 +154,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 05-01: Create `UploadModule` with `UploadController` — wire `multer` (or NestJS `FileInterceptor`) for `multipart/form-data`; validate `userId` as UUID before processing; read file buffer as UTF-8 string; call `ExtractionService.enqueue(text, userId, 'document')`; return 202 Accepted
+- [x] 05-01: Create `UploadModule` with `UploadController` — wire `multer` (or NestJS `FileInterceptor`) for `multipart/form-data`; validate `userId` as UUID before processing; read file buffer as UTF-8 string; call `ExtractionService.enqueue(text, userId, 'document')`; return 202 Accepted
 - [ ] 05-02: Add file type validation (accept only `.txt` and `.md` by MIME type and extension); add request-level error handling (400 for invalid UUID, 415 for unsupported file type, 413 for oversized file); write integration smoke test confirming a valid upload produces a BullMQ job
 
 **UI hint**: no
