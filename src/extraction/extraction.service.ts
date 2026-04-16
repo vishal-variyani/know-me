@@ -6,7 +6,7 @@ import { StateGraph, END } from '@langchain/langgraph';
 import type { Queue } from 'bullmq';
 import { EmbeddingService } from '../embedding/embedding.service.js';
 import { MemoryService } from '../memory/memory.service.js';
-import { PeopleService } from '../memory/people.service.js';
+import { PeopleService } from '../memory/people/people.service.js';
 import { makeClassifyNode } from './nodes/classify.node.js';
 import { makeExtractNode } from './nodes/extract.node.js';
 import { makeValidateNode } from './nodes/validate.node.js';

@@ -35,3 +35,14 @@ export interface ConversationMessageRow {
   content: string;
   created_at: Date;
 }
+
+export interface MessageEmbeddingHit {
+  id: string;
+  user_id: string;
+  message_id: string | null;
+  content: string;
+  source: 'message' | 'document' | 'memory';
+  metadata: Record<string, unknown>;
+  created_at: Date;
+  similarity: number;
+}

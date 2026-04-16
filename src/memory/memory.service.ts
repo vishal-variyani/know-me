@@ -6,6 +6,7 @@ import {
   ConversationMessageRow,
   ConversationRow,
   FactType,
+  MessageEmbeddingHit,
   MemorySearchResult,
 } from './memory.types.js';
 
@@ -51,12 +52,75 @@ export class MemoryService {
     messageId: string,
     userId: string,
     vector: number[],
+    content?: string,
+    metadata?: Record<string, unknown>,
   ): Promise<void> {
     await this.pool.query(
-      `INSERT INTO message_embeddings (message_id, user_id, embedding)
-       VALUES ($1, $2, $3)`,
-      [messageId, userId, pgvector.toSql(vector)],
+      `INSERT INTO message_embeddings (message_id, user_id, content, embedding, source, metadata)
+       VALUES ($1, $2, $3, $4, 'message', $5::jsonb)`,
+      [
+        messageId,
+        userId,
+        content ?? '',
+        pgvector.toSql(vector),
+        JSON.stringify(metadata ?? {}),
+      ],
     );
+  }
+
+  async storeDocumentChunk(params: {
+    userId: string;
+    content: string;
+    embedding: number[];
+    metadata: Record<string, unknown>;
+    enrichedEmbeddingText: string;
+  }): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO message_embeddings
+         (message_id, user_id, content, embedding, source, metadata, enriched_embedding_text)
+       VALUES (NULL, $1, $2, $3, 'document', $4::jsonb, $5)`,
+      [
+        params.userId,
+        params.content,
+        pgvector.toSql(params.embedding),
+        JSON.stringify(params.metadata),
+        params.enrichedEmbeddingText,
+      ],
+    );
+  }
+
+  async searchRelevantEmbeddings(
+    userId: string,
+    vector: number[],
+    topK: number,
+  ): Promise<MessageEmbeddingHit[]> {
+    const result = await this.pool.query<MessageEmbeddingHit>(
+      `SELECT
+         id,
+         user_id,
+         message_id,
+         content,
+         source,
+         metadata,
+         created_at,
+         1 - (embedding <=> $2) AS similarity
+       FROM message_embeddings
+       WHERE user_id = $1
+       ORDER BY embedding <=> $2
+       LIMIT $3`,
+      [userId, pgvector.toSql(vector), topK],
+    );
+    return result.rows;
+  }
+
+  async listKnownPeopleNames(userId: string): Promise<string[]> {
+    const result = await this.pool.query<{ name: string }>(
+      `SELECT name
+       FROM people
+       WHERE user_id = $1`,
+      [userId],
+    );
+    return result.rows.map((r) => r.name);
   }
 
   async searchSimilar(

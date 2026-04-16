@@ -41,7 +41,7 @@ describe('ChatGateway', () => {
       }),
     };
     mockRetrievalService = {
-      retrieve: vi.fn().mockResolvedValue({ memories: [], people: [] }),
+      retrieve: vi.fn().mockResolvedValue({ memories: [], chunks: [], people: [] }),
     };
     mockMemoryService = {
       createConversation: vi.fn().mockResolvedValue({ id: 'conv-1' }),

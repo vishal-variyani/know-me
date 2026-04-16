@@ -1,5 +1,5 @@
 import { BadRequestException, Controller, Get, Param, Query } from '@nestjs/common';
-import { MemoryService } from './memory.service';
+import { MemoryService } from '../memory.service';
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

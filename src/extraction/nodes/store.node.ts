@@ -1,7 +1,7 @@
 import { Logger } from '@nestjs/common';
 import type { EmbeddingService } from '../../embedding/embedding.service.js';
 import type { MemoryService } from '../../memory/memory.service.js';
-import type { PeopleService } from '../../memory/people.service.js';
+import type { PeopleService } from '../../memory/people/people.service.js';
 import type { ExtractionState } from '../extraction.types.js';
 
 export function makeStoreNode(

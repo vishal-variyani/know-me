@@ -1,8 +1,10 @@
 import {
   BadRequestException,
   Controller,
+  Param,
   HttpCode,
   HttpStatus,
+  ParseUUIDPipe,
   Post,
   UploadedFile,
   UseInterceptors,
@@ -12,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import 'multer';
-import { ExtractionService } from '../extraction/extraction.service.js';
+import { DocumentService } from '../document/document.service.js';
 import type { UploadAcceptedResponse } from './upload.types.js';
 
 const UUID_REGEX =
@@ -21,16 +23,17 @@ const UUID_REGEX =
 const ALLOWED_EXTENSIONS = new Set(['.txt', '.md']);
 const MAX_FILE_BYTES = 50 * 1024; // 50 KB
 
-@Controller()
+@Controller('api/conversations/:conversationId')
 export class UploadController {
   private readonly logger = new Logger(UploadController.name);
 
-  constructor(private readonly extractionService: ExtractionService) {}
+  constructor(private readonly documentService: DocumentService) {}
 
   @Post('upload')
   @HttpCode(HttpStatus.ACCEPTED)
   @UseInterceptors(FileInterceptor('file'))
   async uploadDocument(
+    @Param('conversationId', ParseUUIDPipe) _conversationId: string,
     @Body('userId') userId: string,
     @UploadedFile() file: Express.Multer.File,
   ): Promise<UploadAcceptedResponse> {
@@ -71,10 +74,14 @@ export class UploadController {
       throw new BadRequestException('File content must not be empty');
     }
 
-    // 6. Enqueue for extraction (fire-and-forget — endpoint does not wait for pipeline)
-    await this.extractionService.enqueue(text, userId, 'document');
+    // 6. Run EASC chunking + document embedding/extraction pipeline.
+    await this.documentService.processUpload({
+      text,
+      userId,
+      filename: file.originalname ?? null,
+    });
     this.logger.log(
-      `Enqueued document extraction userId=${userId} ext=${ext} contentLen=${text.length}`,
+      `Accepted document upload userId=${userId} ext=${ext} contentLen=${text.length}`,
     );
 
     return { status: 'accepted' };

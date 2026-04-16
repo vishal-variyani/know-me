@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
-import { ConversationHistoryController } from './conversation-history.controller.js';
+import { ConversationHistoryController } from './conversation/conversation-history.controller.js';
 import { MemoryService } from './memory.service.js';
-import { PeopleService } from './people.service.js';
+import { PeopleService } from './people/people.service.js';
 
 @Module({
   controllers: [ConversationHistoryController],

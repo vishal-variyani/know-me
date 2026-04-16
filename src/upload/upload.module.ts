@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { ExtractionModule } from '../extraction/extraction.module.js';
+import { DocumentModule } from '../document/document.module.js';
 import { UploadController } from './upload.controller.js';
 
 @Module({
-  imports: [ExtractionModule],
+  imports: [DocumentModule],
   controllers: [UploadController],
 })
 export class UploadModule {}
