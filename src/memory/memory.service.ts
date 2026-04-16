@@ -107,4 +107,20 @@ export class MemoryService {
       );
     }
   }
+
+  async getRecentMessages(
+    conversationId: string,
+    limit: number,
+  ): Promise<ConversationMessageRow[]> {
+    const result = await this.pool.query<ConversationMessageRow>(
+      `SELECT id, conversation_id, user_id, role, content, created_at
+       FROM conversation_messages
+       WHERE conversation_id = $1
+       ORDER BY created_at DESC
+       LIMIT $2`,
+      [conversationId, limit],
+    );
+    // Reverse to chronological order — DB returns newest-first for efficiency with LIMIT
+    return result.rows.reverse();
+  }
 }

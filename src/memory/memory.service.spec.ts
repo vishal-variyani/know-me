@@ -192,4 +192,42 @@ describe('MemoryService', () => {
       expect(searchParams[2]).toBe(1);
     });
   });
+
+  describe('getRecentMessages', () => {
+    it('calls pool.query with correct SQL and params', async () => {
+      mockPool.query.mockResolvedValueOnce({ rows: [] });
+
+      await service.getRecentMessages('conv-123', 10);
+
+      expect(mockPool.query).toHaveBeenCalledTimes(1);
+      const [sql, params] = mockPool.query.mock.calls[0] as [string, unknown[]];
+      expect(sql).toMatch(/FROM conversation_messages/);
+      expect(sql).toMatch(/WHERE conversation_id = \$1/);
+      expect(sql).toMatch(/ORDER BY created_at DESC/);
+      expect(sql).toMatch(/LIMIT \$2/);
+      expect(params[0]).toBe('conv-123');
+      expect(params[1]).toBe(10);
+    });
+
+    it('reverses DB result to chronological order', async () => {
+      const dbRows = [
+        { id: '3', conversation_id: 'conv-1', user_id: 'u1', role: 'assistant' as const, content: 'c', created_at: new Date() },
+        { id: '2', conversation_id: 'conv-1', user_id: 'u1', role: 'user' as const, content: 'b', created_at: new Date() },
+        { id: '1', conversation_id: 'conv-1', user_id: 'u1', role: 'user' as const, content: 'a', created_at: new Date() },
+      ];
+      mockPool.query.mockResolvedValueOnce({ rows: dbRows });
+
+      const result = await service.getRecentMessages('conv-1', 10);
+
+      expect(result.map((r) => r.id)).toEqual(['1', '2', '3']);
+    });
+
+    it('returns empty array when no messages found', async () => {
+      mockPool.query.mockResolvedValueOnce({ rows: [] });
+
+      const result = await service.getRecentMessages('conv-empty', 10);
+
+      expect(result).toEqual([]);
+    });
+  });
 });
