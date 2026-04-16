@@ -1,6 +1,5 @@
 import { vi } from 'vitest';
 
-// Mock ChatOpenAI before importing LlmService so the constructor never reads env vars
 vi.mock('@langchain/openai', () => {
   const ChatOpenAI = vi.fn().mockImplementation(() => ({}));
   return { ChatOpenAI };
@@ -45,91 +44,200 @@ describe('LlmService', () => {
     vi.clearAllMocks();
   });
 
+  async function collect(iter: AsyncIterable<string>): Promise<string[]> {
+    const out: string[] = [];
+    for await (const t of iter) out.push(t);
+    return out;
+  }
+
+  async function* makeChunks(contents: Array<string | object>) {
+    for (const c of contents) {
+      yield typeof c === 'string' ? { content: c } : c;
+    }
+  }
+
   describe('streamResponse', () => {
     it('yields string tokens from mocked ChatOpenAI.stream()', async () => {
-      async function* makeChunks(contents: string[]) {
-        for (const c of contents) yield { content: c };
-      }
-
       primaryLlm.stream.mockReturnValue(makeChunks(['Hello', ' ', 'world']));
 
-      const signal = new AbortController().signal;
-      const collected: string[] = [];
-      for await (const token of service.streamResponse([], signal)) {
-        collected.push(token);
-      }
+      const tokens = await collect(
+        service.streamResponse([], new AbortController().signal),
+      );
 
-      expect(collected).toEqual(['Hello', ' ', 'world']);
+      expect(tokens).toEqual(['Hello', ' ', 'world']);
       expect(fallbackLlm.stream).not.toHaveBeenCalled();
     });
 
     it('handles AIMessageChunk.content as MessageContentComplex[] — filters non-text chunks', async () => {
-      async function* makeChunks() {
-        yield { content: [{ type: 'text', text: 'hi' }, { type: 'tool_use', id: 'x' }] };
-      }
+      primaryLlm.stream.mockReturnValue(
+        makeChunks([
+          {
+            content: [
+              { type: 'text', text: 'hi' },
+              { type: 'tool_use', id: 'x' },
+            ],
+          },
+        ]),
+      );
 
-      primaryLlm.stream.mockReturnValue(makeChunks());
-
-      const signal = new AbortController().signal;
-      const collected: string[] = [];
-      for await (const token of service.streamResponse([], signal)) {
-        collected.push(token);
-      }
-
-      expect(collected).toEqual(['hi']);
+      const tokens = await collect(
+        service.streamResponse([], new AbortController().signal),
+      );
+      expect(tokens).toEqual(['hi']);
     });
 
     it('skips empty string tokens', async () => {
-      async function* makeChunks() {
-        yield { content: '' };
-        yield { content: 'real' };
-      }
+      primaryLlm.stream.mockReturnValue(makeChunks(['', 'real']));
 
-      primaryLlm.stream.mockReturnValue(makeChunks());
-
-      const signal = new AbortController().signal;
-      const collected: string[] = [];
-      for await (const token of service.streamResponse([], signal)) {
-        collected.push(token);
-      }
-
-      expect(collected).toEqual(['real']);
-    });
-
-    it('falls back when primary model fails before emitting output', async () => {
-      async function* fallbackChunks() {
-        yield { content: 'fallback' };
-      }
-
-      primaryLlm.stream.mockRejectedValue(new Error('primary down'));
-      fallbackLlm.stream.mockReturnValue(fallbackChunks());
-
-      const signal = new AbortController().signal;
-      const collected: string[] = [];
-      for await (const token of service.streamResponse([], signal)) {
-        collected.push(token);
-      }
-
-      expect(collected).toEqual(['fallback']);
-      expect(fallbackLlm.stream).toHaveBeenCalledTimes(1);
+      const tokens = await collect(
+        service.streamResponse([], new AbortController().signal),
+      );
+      expect(tokens).toEqual(['real']);
     });
 
     it('does not fall back after primary already emitted output', async () => {
       async function* primaryChunksThenError() {
         yield { content: 'partial' };
-        throw new Error('primary mid-stream failure');
+        throw Object.assign(new Error('boom'), { status: 500 });
       }
-
       primaryLlm.stream.mockReturnValue(primaryChunksThenError());
 
-      const signal = new AbortController().signal;
-      const stream = service.streamResponse([], signal);
+      const stream = service.streamResponse(
+        [],
+        new AbortController().signal,
+      ) as AsyncGenerator<string>;
 
       await expect(stream.next()).resolves.toEqual({
         done: false,
         value: 'partial',
       });
-      await expect(stream.next()).rejects.toThrow('primary mid-stream failure');
+      await expect(stream.next()).rejects.toThrow('boom');
+      expect(fallbackLlm.stream).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('fallback triggers', () => {
+    it('falls back on timeout (HTTP 408)', async () => {
+      primaryLlm.stream.mockRejectedValue(
+        Object.assign(new Error('request timeout'), { status: 408 }),
+      );
+      fallbackLlm.stream.mockReturnValue(makeChunks(['fb']));
+
+      const tokens = await collect(
+        service.streamResponse([], new AbortController().signal),
+      );
+      expect(tokens).toEqual(['fb']);
+      expect(fallbackLlm.stream).toHaveBeenCalledTimes(1);
+    });
+
+    it('falls back on timeout (ETIMEDOUT code)', async () => {
+      primaryLlm.stream.mockRejectedValue(
+        Object.assign(new Error('connect ETIMEDOUT'), { code: 'ETIMEDOUT' }),
+      );
+      fallbackLlm.stream.mockReturnValue(makeChunks(['fb']));
+
+      const tokens = await collect(
+        service.streamResponse([], new AbortController().signal),
+      );
+      expect(tokens).toEqual(['fb']);
+    });
+
+    it('falls back on timeout (message mentions "timed out")', async () => {
+      primaryLlm.stream.mockRejectedValue(new Error('Request timed out'));
+      fallbackLlm.stream.mockReturnValue(makeChunks(['fb']));
+
+      const tokens = await collect(
+        service.streamResponse([], new AbortController().signal),
+      );
+      expect(tokens).toEqual(['fb']);
+    });
+
+    it('falls back on rate limit (HTTP 429)', async () => {
+      primaryLlm.stream.mockRejectedValue(
+        Object.assign(new Error('Too Many Requests'), { status: 429 }),
+      );
+      fallbackLlm.stream.mockReturnValue(makeChunks(['fb']));
+
+      const tokens = await collect(
+        service.streamResponse([], new AbortController().signal),
+      );
+      expect(tokens).toEqual(['fb']);
+    });
+
+    it('falls back on provider API error (HTTP 500)', async () => {
+      primaryLlm.stream.mockRejectedValue(
+        Object.assign(new Error('Internal Server Error'), { status: 500 }),
+      );
+      fallbackLlm.stream.mockReturnValue(makeChunks(['fb']));
+
+      const tokens = await collect(
+        service.streamResponse([], new AbortController().signal),
+      );
+      expect(tokens).toEqual(['fb']);
+    });
+
+    it('falls back on provider API error (HTTP 503)', async () => {
+      primaryLlm.stream.mockRejectedValue(
+        Object.assign(new Error('Service Unavailable'), { status: 503 }),
+      );
+      fallbackLlm.stream.mockReturnValue(makeChunks(['fb']));
+
+      const tokens = await collect(
+        service.streamResponse([], new AbortController().signal),
+      );
+      expect(tokens).toEqual(['fb']);
+    });
+  });
+
+  describe('non-fallbackable errors', () => {
+    it('does NOT fall back on 401 Unauthorized', async () => {
+      const err = Object.assign(new Error('Unauthorized'), { status: 401 });
+      primaryLlm.stream.mockRejectedValue(err);
+
+      await expect(
+        collect(service.streamResponse([], new AbortController().signal)),
+      ).rejects.toThrow('Unauthorized');
+      expect(fallbackLlm.stream).not.toHaveBeenCalled();
+    });
+
+    it('does NOT fall back on 400 Bad Request', async () => {
+      const err = Object.assign(new Error('Bad Request'), { status: 400 });
+      primaryLlm.stream.mockRejectedValue(err);
+
+      await expect(
+        collect(service.streamResponse([], new AbortController().signal)),
+      ).rejects.toThrow('Bad Request');
+      expect(fallbackLlm.stream).not.toHaveBeenCalled();
+    });
+
+    it('does NOT fall back on generic unknown error without status/code', async () => {
+      primaryLlm.stream.mockRejectedValue(new Error('something weird'));
+
+      await expect(
+        collect(service.streamResponse([], new AbortController().signal)),
+      ).rejects.toThrow('something weird');
+      expect(fallbackLlm.stream).not.toHaveBeenCalled();
+    });
+
+    it('does NOT fall back on user AbortError', async () => {
+      const abortErr = new Error('aborted');
+      abortErr.name = 'AbortError';
+      primaryLlm.stream.mockRejectedValue(abortErr);
+
+      await expect(
+        collect(service.streamResponse([], new AbortController().signal)),
+      ).rejects.toThrow('aborted');
+      expect(fallbackLlm.stream).not.toHaveBeenCalled();
+    });
+
+    it('does NOT fall back when signal is already aborted', async () => {
+      primaryLlm.stream.mockRejectedValue(new Error('Internal Server Error'));
+      const ctrl = new AbortController();
+      ctrl.abort();
+
+      await expect(
+        collect(service.streamResponse([], ctrl.signal)),
+      ).rejects.toThrow();
       expect(fallbackLlm.stream).not.toHaveBeenCalled();
     });
   });

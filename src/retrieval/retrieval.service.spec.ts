@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { EmbeddingService } from '../embedding/embedding.service.js';
 import { MemoryService } from '../memory/memory.service.js';
-import { PeopleService } from '../memory/people.service.js';
+import { PeopleService } from '../memory/people/people.service.js';
 import { RetrievalService } from './retrieval.service.js';
 import type { MemorySearchResult, PersonRow } from '../memory/memory.types.js';
 
