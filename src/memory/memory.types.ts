@@ -1,4 +1,4 @@
-export type FactType = 'preference' | 'relationship' | 'event' | 'belief' | 'goal' | 'habit';
+export type FactType = 'fact' | 'preference' | 'relationship' | 'emotion';
 
 export interface MemorySearchResult {
   id: string;
