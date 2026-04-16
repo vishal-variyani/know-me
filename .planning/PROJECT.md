@@ -21,7 +21,7 @@ The AI gets meaningfully better at knowing each user the more they interact — 
 - [ ] Hybrid retrieval: pgvector cosine similarity top-k=5 (memory_entries) + direct people table lookup when names are mentioned
 - [ ] Background LangGraph extraction pipeline: Classify → Extract → Validate → Store (runs after each message)
 - [ ] Five PostgreSQL tables with RLS scoped to `user_id`: `conversations`, `conversation_messages`, `message_embeddings` (pgvector HNSW), `people`, `memory_entries`
-- [ ] REST endpoint for journal/document upload that feeds the extraction pipeline
+- ✓ REST endpoint for journal/document upload that feeds the extraction pipeline — Validated in Phase 5: Document Upload
 - [ ] LangChain embeddings via `text-embedding-3-small` (1536 dims) for all vector operations
 - [ ] GPT-4o-mini via LangChain for the extraction pipeline
 - [ ] Vitest test suite with unit coverage of core services
@@ -81,4 +81,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-16
+*Last updated: 2026-04-16 (Phase 5: Document Upload complete)
