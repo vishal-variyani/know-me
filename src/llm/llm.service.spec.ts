@@ -1,3 +1,11 @@
+import { vi } from 'vitest';
+
+// Mock ChatAnthropic before importing LlmService so the constructor never reads env vars
+vi.mock('@langchain/anthropic', () => {
+  const ChatAnthropic = vi.fn().mockImplementation(() => ({}));
+  return { ChatAnthropic };
+});
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { LlmService } from './llm.service.js';
