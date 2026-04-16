@@ -8,6 +8,7 @@ import { DatabaseModule } from './database/database.module.js';
 import { EmbeddingModule } from './embedding/embedding.module.js';
 import { ExtractionModule } from './extraction/extraction.module.js';
 import { MemoryModule } from './memory/memory.module.js';
+import { UploadModule } from './upload/upload.module.js';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { MemoryModule } from './memory/memory.module.js';
     MemoryModule,
     ExtractionModule,
     ChatModule,
+    UploadModule,
   ],
   controllers: [AppController],
   providers: [AppService],
