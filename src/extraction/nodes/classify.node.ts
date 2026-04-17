@@ -12,7 +12,7 @@ const TRIVIAL_PATTERN =
  * Determines whether the content contains at least one proper noun.
  */
 function hasProperNounInContent(content: string): boolean {
-  return nlp(content).match('#ProperNoun').found;
+  return nlp(content).match('#Noun').found;
 }
 
 /**

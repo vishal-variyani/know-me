@@ -7,7 +7,6 @@ import type { Queue } from 'bullmq';
 import { EmbeddingService } from '../embedding/embedding.service.js';
 import { MemoryService } from '../memory/memory.service.js';
 import { PeopleService } from '../memory/people/people.service.js';
-import { makeClassifyNode } from './nodes/classify.node.js';
 import { makeExtractNode } from './nodes/extract.node.js';
 import { makeValidateNode } from './nodes/validate.node.js';
 import { makeStoreNode } from './nodes/store.node.js';
@@ -18,11 +17,11 @@ type CompiledExtractionGraph = {
 };
 
 type ExtractionGraphBuilder = {
-  addNode(name: 'classify' | 'extract' | 'validate' | 'store', node: unknown): void;
-  setEntryPoint(name: 'classify'): void;
+  addNode(name: 'extract' | 'validate' | 'store', node: unknown): void;
+  setEntryPoint(name: 'extract'): void;
   addConditionalEdges(
-    source: 'classify' | 'validate',
-    route: (state: ExtractionState) => 'extract' | 'store' | typeof END,
+    source: 'validate',
+    route: (state: ExtractionState) => 'store' | typeof END,
   ): void;
   addEdge(source: 'extract' | 'store', target: 'validate' | typeof END): void;
   compile(): CompiledExtractionGraph;
@@ -74,7 +73,6 @@ export class ExtractionService implements OnModuleInit {
     const llm = new ChatOpenAI({ model, temperature: 0 });
 
     // Build node functions via factories — each closed over its dependencies (D-27)
-    const classifyNode = makeClassifyNode(this.logger);
     const extractNode = makeExtractNode(llm, this.logger);
     const validateNode = makeValidateNode(this.logger);
     const storeNode = makeStoreNode(
@@ -91,19 +89,11 @@ export class ExtractionService implements OnModuleInit {
       channels: makeStateChannels() as never,
     }) as unknown as ExtractionGraphBuilder;
 
-    builder.addNode('classify', classifyNode);
     builder.addNode('extract', extractNode);
     builder.addNode('validate', validateNode);
     builder.addNode('store', storeNode);
 
-    builder.setEntryPoint('classify');
-
-    // D-22: Classify → Extract (if shouldExtract) or END
-    builder.addConditionalEdges(
-      'classify',
-      (state: ExtractionState) =>
-        state.classifyResult?.shouldExtract ? 'extract' : END,
-    );
+    builder.setEntryPoint('extract');
 
     // D-23: Extract → Validate always (Validate decides its own END)
     builder.addEdge('extract', 'validate');

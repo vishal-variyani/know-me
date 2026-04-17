@@ -29,11 +29,7 @@ import type {
   ChatCompletePayload,
   ChatErrorPayload,
 } from './chat.types.js';
-
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const HISTORY_LIMIT = 10; // D-02: hard-coded constant for v1
-const MEMORY_THRESHOLD = 0.7; // D-03: similarity threshold for memory injection
+import { UUID_REGEX, HISTORY_LIMIT, MEMORY_THRESHOLD, SHIRIN_BASE_SYSTEM_PROMPT } from './chat.constants.js';
 
 @WebSocketGateway()
 @Injectable()
@@ -108,19 +104,13 @@ export class ChatGateway
 
     let fullResponse = '';
     try {
-      const shouldRespond =
+      const shouldExtract =
         this.classifyNode({
           content: text,
           userId,
           sourceType: 'conversation',
           correlationId: `chat-${client.id}`,
         }).classifyResult?.shouldExtract ?? false;
-
-      if (!shouldRespond) {
-        await this.memoryService.addMessage(conversationId, userId, 'user', text);
-        client.emit('chat:complete', { conversationId } satisfies ChatCompletePayload);
-        return;
-      }
 
       // WR-01: Fetch history and retrieval context BEFORE persisting user message
       // to avoid the current turn appearing twice in the LLM prompt.
@@ -138,6 +128,11 @@ export class ChatGateway
         fullResponse += token;
       }
 
+      // Temporary testing visibility: log full model output for each turn.
+      this.logger.debug(
+        `LLM response generated userId=${userId} conversationId=${conversationId} response="${fullResponse}"`,
+      );
+
       // WR-03: Only persist assistant response if the stream yielded tokens
       if (fullResponse.length > 0) {
         await this.memoryService.addMessage(conversationId, userId, 'assistant', fullResponse);
@@ -146,15 +141,18 @@ export class ChatGateway
       client.emit('chat:complete', { conversationId } satisfies ChatCompletePayload);
 
       // Fire-and-forget extraction — NEVER await (CHAT-06)
-      void this.extractionService
-        .enqueue(
-          text + '\n' + fullResponse,
-          userId,
-          'conversation',
-        )
-        .catch((err: unknown) =>
-          this.logger.error('Extraction enqueue failed', String(err)),
-        );
+      // Classification controls extraction only, never assistant response generation.
+      if (shouldExtract) {
+        void this.extractionService
+          .enqueue(
+            text + '\n' + fullResponse,
+            userId,
+            'conversation',
+          )
+          .catch((err: unknown) =>
+            this.logger.error('Extraction enqueue failed', String(err)),
+          );
+      }
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') {
         // Normal disconnect — client is gone, no error event needed
@@ -183,7 +181,7 @@ function buildSystemPrompt(ctx: MemoryContext): string {
           )
           .join('\n')
       : '';
-console
+
   const peopleBlock =
     ctx.people.length > 0
       ? ctx.people
@@ -206,8 +204,8 @@ console
     .join('\n');
 
   return contextSection
-    ? `You are a helpful assistant with memory of this user.\n\n${contextSection}`
-    : 'You are a helpful assistant.';
+    ? `${SHIRIN_BASE_SYSTEM_PROMPT}\n\nKnown user context (use only if relevant):\n${contextSection}`
+    : SHIRIN_BASE_SYSTEM_PROMPT;
 }
 
 function buildMessages(
