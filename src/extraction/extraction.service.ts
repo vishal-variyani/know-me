@@ -13,21 +13,6 @@ import { makeValidateNode } from './nodes/validate.node.js';
 import { makeStoreNode } from './nodes/store.node.js';
 import type { ExtractionJobPayload, ExtractionState } from './extraction.types.js';
 
-type CompiledExtractionGraph = {
-  invoke(input: ExtractionState): Promise<unknown>;
-};
-
-type ExtractionGraphBuilder = {
-  addNode(name: 'classify' | 'extract' | 'validate' | 'store', node: unknown): void;
-  setEntryPoint(name: 'classify'): void;
-  addConditionalEdges(
-    source: 'classify' | 'validate',
-    route: (state: ExtractionState) => 'extract' | 'store' | typeof END,
-  ): void;
-  addEdge(source: 'extract' | 'store', target: 'validate' | typeof END): void;
-  compile(): CompiledExtractionGraph;
-};
-
 // LangGraph requires a channels definition describing how state fields are merged.
 // Using last-write-wins reducer for all fields — simple and correct for a linear
 // pipeline where each node owns its output field exclusively.
@@ -57,7 +42,8 @@ function makeStateChannels(): Record<
 export class ExtractionService implements OnModuleInit {
   private readonly logger = new Logger(ExtractionService.name);
   // Compiled graph — built in onModuleInit() after all injected services are ready (D-27)
-  private graph!: CompiledExtractionGraph;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private graph!: any;
 
   constructor(
     @InjectQueue('extraction') private readonly queue: Queue,
@@ -85,20 +71,29 @@ export class ExtractionService implements OnModuleInit {
     );
 
     // Compile LangGraph StateGraph (D-22, D-23, D-24).
-    // LangGraph's generic builder typing is stricter than our dynamic wiring style,
-    // so we project to a narrow local interface used by this service.
+    // LangGraph TypeScript generics are strict about node name literals — they only know
+    // '__start__' until nodes are added. Cast builder to `any` for graph wiring to avoid
+    // the false-positive TS2345 errors; runtime behavior is unaffected.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const builder = new StateGraph<ExtractionState>({
       channels: makeStateChannels() as never,
-    }) as unknown as ExtractionGraphBuilder;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }) as any;
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     builder.addNode('classify', classifyNode);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     builder.addNode('extract', extractNode);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     builder.addNode('validate', validateNode);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     builder.addNode('store', storeNode);
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     builder.setEntryPoint('classify');
 
     // D-22: Classify → Extract (if shouldExtract) or END
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     builder.addConditionalEdges(
       'classify',
       (state: ExtractionState) =>
@@ -106,17 +101,21 @@ export class ExtractionService implements OnModuleInit {
     );
 
     // D-23: Extract → Validate always (Validate decides its own END)
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     builder.addEdge('extract', 'validate');
 
     // D-23: Validate → Store (if validateResult exists) or END
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     builder.addConditionalEdges(
       'validate',
       (state: ExtractionState) =>
         state.validateResult !== undefined ? 'store' : END,
     );
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     builder.addEdge('store', END);
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     this.graph = builder.compile();
 
     this.logger.log(`ExtractionService initialized with model=${model}`);
@@ -157,6 +156,7 @@ export class ExtractionService implements OnModuleInit {
 
     try {
       // EXTR-08: Error boundary — re-throw after logging to trigger BullMQ retry
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       await this.graph.invoke(initialState);
       this.logger.debug(`[${correlationId}] runGraph complete`);
     } catch (err: unknown) {
