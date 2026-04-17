@@ -25,10 +25,10 @@ describe('classifyNode', () => {
     expect(result.classifyResult?.shouldExtract).toBe(expected);
   });
 
-  it('returns false for message with no proper noun', () => {
+  it('returns true when content contains a noun phrase', () => {
     expect(
       classifyNode(makeState('I love spicy food')).classifyResult?.shouldExtract,
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('returns true for message with proper noun', () => {
