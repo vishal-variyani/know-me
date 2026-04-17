@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConversationHistoryController } from './conversation-history.controller.js';
-import { MemoryService } from './memory.service.js';
+import { MemoryService } from '../memory.service.js';
 
 describe('ConversationHistoryController', () => {
   let controller: ConversationHistoryController;
