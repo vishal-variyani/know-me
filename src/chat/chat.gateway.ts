@@ -16,6 +16,7 @@ import { LlmService } from '../llm/llm.service.js';
 import { RetrievalService } from '../retrieval/retrieval.service.js';
 import { MemoryService } from '../memory/memory.service.js';
 import { ExtractionService } from '../extraction/extraction.service.js';
+import { makeClassifyNode } from '../extraction/nodes/classify.node.js';
 import type { MemoryContext } from '../retrieval/retrieval.types.js';
 import type {
   ConversationMessageRow,
@@ -28,11 +29,7 @@ import type {
   ChatCompletePayload,
   ChatErrorPayload,
 } from './chat.types.js';
-
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const HISTORY_LIMIT = 10; // D-02: hard-coded constant for v1
-const MEMORY_THRESHOLD = 0.7; // D-03: similarity threshold for memory injection
+import { UUID_REGEX, HISTORY_LIMIT, MEMORY_THRESHOLD, SHIRIN_BASE_SYSTEM_PROMPT } from './chat.constants.js';
 
 @WebSocketGateway()
 @Injectable()
@@ -41,6 +38,7 @@ export class ChatGateway
 {
   @WebSocketServer() server!: Server;
   private readonly logger = new Logger(ChatGateway.name);
+  private readonly classifyNode = makeClassifyNode(this.logger);
   private readonly abortControllers = new Map<string, AbortController>();
   private readonly conversationIds = new Map<string, string>();
 
@@ -106,6 +104,20 @@ export class ChatGateway
 
     let fullResponse = '';
     try {
+      const shouldRespond =
+        this.classifyNode({
+          content: text,
+          userId,
+          sourceType: 'conversation',
+          correlationId: `chat-${client.id}`,
+        }).classifyResult?.shouldExtract ?? false;
+
+      if (!shouldRespond) {
+        await this.memoryService.addMessage(conversationId, userId, 'user', text);
+        client.emit('chat:complete', { conversationId } satisfies ChatCompletePayload);
+        return;
+      }
+
       // WR-01: Fetch history and retrieval context BEFORE persisting user message
       // to avoid the current turn appearing twice in the LLM prompt.
       const [memoryContext, history] = await Promise.all([
@@ -167,7 +179,7 @@ function buildSystemPrompt(ctx: MemoryContext): string {
           )
           .join('\n')
       : '';
-console
+
   const peopleBlock =
     ctx.people.length > 0
       ? ctx.people
@@ -190,8 +202,8 @@ console
     .join('\n');
 
   return contextSection
-    ? `You are a helpful assistant with memory of this user.\n\n${contextSection}`
-    : 'You are a helpful assistant.';
+    ? `${SHIRIN_BASE_SYSTEM_PROMPT}\n\nKnown user context (use only if relevant):\n${contextSection}`
+    : SHIRIN_BASE_SYSTEM_PROMPT;
 }
 
 function buildMessages(

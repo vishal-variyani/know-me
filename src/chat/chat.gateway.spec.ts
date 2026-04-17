@@ -105,7 +105,7 @@ describe('ChatGateway', () => {
       const client = makeSocket();
       gateway.handleConnection(client as Socket);
 
-      await gateway.handleChatSend(client as Socket, { message: 'Hello' });
+      await gateway.handleChatSend(client as Socket, { message: 'I had lunch with Sarah' });
 
       const emitMock = client.emit as ReturnType<typeof vi.fn>;
       const chunkCalls = emitMock.mock.calls.filter(
@@ -120,6 +120,28 @@ describe('ChatGateway', () => {
       expect(chunkCalls[1][1]).toEqual({ token: ' world' });
       expect(completeCalls).toHaveLength(1);
       expect(completeCalls[0][1]).toEqual({ conversationId: 'conv-1' });
+    });
+  });
+
+  describe('handleChatSend — non-extractable message short-circuit', () => {
+    it('emits chat:complete without streaming when classifier says shouldExtract=false', async () => {
+      const client = makeSocket();
+      gateway.handleConnection(client as Socket);
+
+      await gateway.handleChatSend(client as Socket, { message: 'Hello' });
+
+      const emitMock = client.emit as ReturnType<typeof vi.fn>;
+      const chunkCalls = emitMock.mock.calls.filter(
+        (c: unknown[]) => c[0] === 'chat:chunk',
+      );
+      const completeCalls = emitMock.mock.calls.filter(
+        (c: unknown[]) => c[0] === 'chat:complete',
+      );
+
+      expect(chunkCalls).toHaveLength(0);
+      expect(completeCalls).toHaveLength(1);
+      expect(mockLlmService.streamResponse).not.toHaveBeenCalled();
+      expect(mockExtractionService.enqueue).not.toHaveBeenCalled();
     });
   });
 
@@ -149,13 +171,14 @@ describe('ChatGateway', () => {
       const client = makeSocket();
       gateway.handleConnection(client as Socket);
 
-      await gateway.handleChatSend(client as Socket, { message: 'test' });
+      await gateway.handleChatSend(client as Socket, { message: 'I had lunch with Sarah' });
 
       const emitMock = client.emit as ReturnType<typeof vi.fn>;
       const completeCalls = emitMock.mock.calls.filter(
         (c: unknown[]) => c[0] === 'chat:complete',
       );
       expect(completeCalls).toHaveLength(1);
+      expect(mockExtractionService.enqueue).toHaveBeenCalledTimes(1);
     });
   });
 

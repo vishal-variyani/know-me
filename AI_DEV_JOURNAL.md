@@ -15,6 +15,8 @@
 - LLM fallback behavior boundaries (when to fail over vs when to fail fast)
 - Prompt/context assembly logic and reliability guards
 - Test updates where generated mocks or imports drifted from real module paths
+- Replaced the claude gode generated logic to check the noun inside the user's message with the nlp from compromise to check ProperNoun in it.
+- Replaced a vague Bas Sytem prompt with a detailed role specific prompt to generate more relevant and accurate responses.
 
 ## 2) Incorrect AI output and how I caught/fixed it
 
