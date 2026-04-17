@@ -16,7 +16,6 @@ import { LlmService } from '../llm/llm.service.js';
 import { RetrievalService } from '../retrieval/retrieval.service.js';
 import { MemoryService } from '../memory/memory.service.js';
 import { ExtractionService } from '../extraction/extraction.service.js';
-import { makeClassifyNode } from '../extraction/nodes/classify.node.js';
 import type { MemoryContext } from '../retrieval/retrieval.types.js';
 import type {
   ConversationMessageRow,
@@ -42,7 +41,6 @@ export class ChatGateway
 {
   @WebSocketServer() server!: Server;
   private readonly logger = new Logger(ChatGateway.name);
-  private readonly classifyNode = makeClassifyNode(this.logger);
   private readonly abortControllers = new Map<string, AbortController>();
   private readonly conversationIds = new Map<string, string>();
 
@@ -108,20 +106,6 @@ export class ChatGateway
 
     let fullResponse = '';
     try {
-      const shouldRespond =
-        this.classifyNode({
-          content: text,
-          userId,
-          sourceType: 'conversation',
-          correlationId: `chat-${client.id}`,
-        }).classifyResult?.shouldExtract ?? false;
-
-      if (!shouldRespond) {
-        await this.memoryService.addMessage(conversationId, userId, 'user', text);
-        client.emit('chat:complete', { conversationId } satisfies ChatCompletePayload);
-        return;
-      }
-
       // WR-01: Fetch history and retrieval context BEFORE persisting user message
       // to avoid the current turn appearing twice in the LLM prompt.
       const [memoryContext, history] = await Promise.all([
